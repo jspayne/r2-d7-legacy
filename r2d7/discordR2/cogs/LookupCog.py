@@ -79,7 +79,7 @@ class SelectCard(discord.ui.View):
             elif faction in faction_emoji:
                 emoji = faction_emoji[faction]
 
-            label = f"{legality_emoji}{unique_pips or ''}{cardTrueName} ({cardType})"
+            label = f"{legality_emoji or ''}{unique_pips or ''}{cardTrueName} ({cardType})"
             if restrictions:
                 label += f", {restrictions}"
             self.label_to_fullResult_dict[label] = result
@@ -120,6 +120,7 @@ class SelectCard(discord.ui.View):
             self.label_to_fullResult_dict[label]
             for label in selected_card_labels
         ]
+        self.embeds = []
         for fullCard in fullCards:
             self.create_card_embeds(fullCard)
 
@@ -153,7 +154,7 @@ class LookupCog(commands.Cog):
                     if results:
                         break
         if not results:
-            await ctx.respond("No cards found matching your query.")
+            await ctx.respond("No cards found matching your query.", ephemeral=True)
             return
 
         self.embeds = []
@@ -170,7 +171,7 @@ class LookupCog(commands.Cog):
                     fixed_line = fixed_line.replace(
                         slack_style, discord_style)
                 # Set maximum size for embed to maximum content size of embed minus the maximum for footer
-                if len(current_message) + 2 + len(fixed_line) < 5500:
+                if len(current_message) + 2 + len(fixed_line) < 3952:
                     current_message += f"\n{fixed_line}"
                 else:
                     embed = discord.Embed(description=current_message)
