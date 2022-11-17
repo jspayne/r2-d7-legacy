@@ -33,18 +33,20 @@ class Droid(
 intents = discord.Intents.default()
 intents.message_content = True
 
+
 class DiscordClient(commands.Bot):
     def __init__(self, droid):
         super(DiscordClient, self).__init__(intents=intents)
         self.droid = droid
+        self.emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.emojis}
 
         self._here = os.path.dirname(os.path.abspath(__file__))
+        print(self._here)
         # load the cogsDirectory
-        # for filename in os.listdir(os.path.join(self._here, "cogs")):
-        #     if filename.endswith("py"):
-        #         self.load_extension(f"cogs.{filename[:-3]}")
-                # print(filename, "loaded.")
-
+        for filename in os.listdir(os.path.join(self._here, "cogs")):
+            if filename.endswith("py"):
+                self.load_extension(f"r2d7.discordR2.cogs.{filename[:-3]}")
+                logger.info(f"{filename} loaded.")
 
     async def on_ready(self):
         logger.info(f"Bot online as {self.user}")
@@ -60,6 +62,7 @@ class DiscordClient(commands.Bot):
         # Check for new data
         if self.droid.needs_update():
             self.droid.load_data()
+            self.emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.emojis}
 
         responses = None
 
@@ -190,6 +193,7 @@ def main():
     )
 
     discord_token = os.getenv("DISCORD_TOKEN", None)
+    # discord_token = os.getenv("DEV_TOKEN", None)
     logging.info(f"discord token: {discord_token}")
 
     droid = Droid()
