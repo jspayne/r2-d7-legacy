@@ -19,7 +19,6 @@ class SelectCard(discord.ui.View):
 
         for result in self.allResults:
             firstLine = result[0]
-            print(result)
             cardType = firstLine.split()[0].replace(':', '')
             cardTrueName = firstLine.split('**[')[1].split('](')[0]
             with contextlib.suppress(IndexError):
@@ -44,7 +43,7 @@ class SelectCard(discord.ui.View):
         fullCards = [self.label_to_fullResult_dict[label] for label in selected_card_labels]
 
         emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.bot.emojis}
-        print(json.dumps(emoji_map, indent=2))
+        # print(json.dumps(emoji_map, indent=2))
         for fullCard in fullCards:
             current_message = ''
             for line in fullCard:
