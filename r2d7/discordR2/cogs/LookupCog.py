@@ -120,8 +120,6 @@ class SelectCard(discord.ui.View):
             self.label_to_fullResult_dict[label]
             for label in selected_card_labels
         ]
-
-        # print(json.dumps(emoji_map, indent=2))
         for fullCard in fullCards:
             self.create_card_embeds(fullCard)
 
@@ -136,49 +134,51 @@ class LookupCog(commands.Cog):
     @commands.slash_command(
         description="Look up a card"
     )
-    async def card(self, ctx: discord.ApplicationContext, keyword, display=False):
+    async def card(self, ctx: discord.ApplicationContext, query):
         results = None
         if self.bot.droid.needs_update():
             self.bot.droid.load_data()
 
         if not ctx.guild:
             for regex, handle_method in self.bot.droid._dm_handlers.items():
-                if match := regex.search(f"[[{keyword}]]"):
+                if match := regex.search(f"[[{query}]]"):
                     results = handle_method(match[1])
                     if results:
                         break
 
         if not results:
             for regex, handle_method in self.bot.droid._handlers.items():
-                if match := regex.search(f"[[{keyword}]]"):
+                if match := regex.search(f"[[{query}]]"):
                     results = handle_method(match[1])
                     if results:
                         break
+        if not results:
+            await ctx.respond("No cards found matching your query.")
+            return
 
-        if results:
-            self.embeds = []
-            if len(results) > 1:
-                await ctx.respond(view=SelectCard(results, self.bot), ephemeral=True)
+        self.embeds = []
+        if len(results) > 1:
+            await ctx.respond(view=SelectCard(results, self.bot), ephemeral=True)
 
-            else:
-                emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.bot.emojis}
+        else:
+            emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.bot.emojis}
 
-                current_message = ''
-                for line in results[0]:
-                    fixed_line = line
-                    for slack_style, discord_style in emoji_map.items():
-                        fixed_line = fixed_line.replace(
-                            slack_style, discord_style)
-                    # Set maximum size for embed to maximum content size of embed minus the maximum for footer
-                    if len(current_message) + 2 + len(fixed_line) < 5500:
-                        current_message += f"\n{fixed_line}"
-                    else:
-                        embed = discord.Embed(description=current_message)
-                        self.embeds.append(embed)
-                        current_message = fixed_line
+            current_message = ''
+            for line in results[0]:
+                fixed_line = line
+                for slack_style, discord_style in emoji_map.items():
+                    fixed_line = fixed_line.replace(
+                        slack_style, discord_style)
+                # Set maximum size for embed to maximum content size of embed minus the maximum for footer
+                if len(current_message) + 2 + len(fixed_line) < 5500:
+                    current_message += f"\n{fixed_line}"
+                else:
+                    embed = discord.Embed(description=current_message)
+                    self.embeds.append(embed)
+                    current_message = fixed_line
 
-                self.embeds.append(discord.Embed(description=current_message))
-                await ctx.respond(embeds=self.embeds, view=None, ephemeral=not display)
+            self.embeds.append(discord.Embed(description=current_message))
+            await ctx.respond(embeds=self.embeds, view=None, ephemeral=True)
 
 
 def setup(bot: commands.Bot):
