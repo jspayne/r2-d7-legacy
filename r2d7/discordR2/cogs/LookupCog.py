@@ -13,7 +13,6 @@ class SelectCard(discord.ui.View):
         self.embeds = []
         self.timeout = 30
         super().__init__()
-
         self.allResults = results_from_lookup
         self.label_to_fullResult_dict = {}
         self.label_to_emoji_dict = {}
@@ -43,7 +42,7 @@ class SelectCard(discord.ui.View):
         }
 
         for result in self.allResults:
-            print(result)
+            # print(result)
             firstLine, secondLine = result[:2]
             # accounts for double-slot cards, and strips colons
             cardType = firstLine.split()[0].replace("::", "+")[1:-1]
@@ -98,10 +97,11 @@ class SelectCard(discord.ui.View):
         self.add_item(dropdown)
 
     def create_card_embeds(self, card_data):
+        emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.bot.emojis}
         current_message = ''
         for line in card_data:
             fixed_line = line
-            for slack_style, discord_style in self.bot.emoji_map.items():
+            for slack_style, discord_style in emoji_map.items():
                 fixed_line = fixed_line.replace(
                     slack_style, discord_style)
             # Set maximum size for embed to maximum content size of embed minus the maximum for footer
