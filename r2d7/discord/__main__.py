@@ -3,8 +3,10 @@ import logging
 import os
 import re
 import asyncio
+from dotenv import load_dotenv
 
 import discord
+from discord.ext import commands
 
 from r2d7.listformatter import ListFormatter
 from r2d7.cardlookup import CardLookup
@@ -15,7 +17,7 @@ from r2d7.talkback import Talkback
 from r2d7.discorddroid import DiscordDroid
 
 logger = logging.getLogger(__name__)
-
+load_dotenv()
 
 class Droid(
         DiscordDroid,
@@ -28,21 +30,29 @@ class Droid(
     pass
 
 
-class DiscordClient(discord.Client):
+class DiscordClient(commands.Bot):
     def __init__(self, droid):
         super().__init__()
         self.droid = droid
+
+        self._here = os.path.dirname(os.path.abspath(__file__))
+        # load the cogs
+        for filename in os.listdir(os.path.join(self._here, "cogs")):
+            if filename.endswith("py"):
+                self.load_extension(f"cogs.{filename[:-3]}")
+                # print(filename, "loaded.")
+
 
     async def on_ready(self):
         logger.info(f"Bot online as {self.user}")
 
     async def on_message(self, message):
-        if message.author == self.user:
+        if message.author.bot:
             return
 
         logger.debug(f"Message: {message}\nContent: {message.clean_content}")
 
-        bot_has_message_permissions = message.guild and message.guild.me.permissions_in(message.channel).manage_messages
+        bot_has_message_permissions = message.guild and message.channel.permissions_for(message.guild.me).manage_messages
 
         # Check for new data
         if self.droid.needs_update():
@@ -85,7 +95,7 @@ class DiscordClient(discord.Client):
                 try:
                     def check(m):
                         lowercaseMessage = m.content.lower()
-                        isValid = lowercaseMessage in ['x'] + list(str(n) for n in range(1, 16))
+                        isValid = lowercaseMessage in ['x'] + [str(n) for n in range(1, 16)]
                         if lowercaseMessage.isnumeric():
                             isValid = 1 <= int(lowercaseMessage) <= len(responses)
 
@@ -177,7 +187,7 @@ def main():
     )
 
     discord_token = os.getenv("DISCORD_TOKEN", None)
-    logging.info("discord token: {}".format(discord_token))
+    logging.info(f"discord token: {discord_token}")
 
     droid = Droid()
     if discord_token:
