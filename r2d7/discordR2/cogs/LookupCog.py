@@ -99,7 +99,7 @@ class LookupCog(commands.Cog):
                         fixed_line = fixed_line.replace(
                             slack_style, discord_style)
                     # Set maximum size for embed to maximum content size of embed minus the maximum for footer
-                    if len(current_message) + 2 + len(fixed_line) < 3952:
+                    if len(current_message) + 2 + len(fixed_line) < 5500:
                         current_message += f"\n{fixed_line}"
                     else:
                         embed = discord.Embed(description=current_message)

@@ -190,8 +190,7 @@ def main():
     )
 
     discord_token = os.getenv("DISCORD_TOKEN", None)
-    discord_token = "NTY5NTU0MjkwMzMxMzUzMDg4.XMXJkw.oxL4sUkd2aU2tNCdwdUJ6tHVono"
-    logging.info(f"discordR2 token: {discord_token}")
+    logging.info(f"discord token: {discord_token}")
 
     droid = Droid()
     if discord_token:
@@ -199,7 +198,7 @@ def main():
         bot = DiscordClient(droid)
         bot.run(discord_token)
     else:
-        logging.error("No discordR2 token found, exiting.")
+        logging.error("No discord token found, exiting.")
         return
 
 
