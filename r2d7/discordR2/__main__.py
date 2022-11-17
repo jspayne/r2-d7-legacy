@@ -43,7 +43,7 @@ class DiscordClient(commands.Bot):
         # for filename in os.listdir(os.path.join(self._here, "cogs")):
         #     if filename.endswith("py"):
         #         self.load_extension(f"cogs.{filename[:-3]}")
-        #         # print(filename, "loaded.")
+                # print(filename, "loaded.")
 
 
     async def on_ready(self):
