@@ -51,7 +51,7 @@ class SelectCard(discord.ui.View):
                     current_message += f"\n{fixed_line}"
                 else:
                     embed = discord.Embed(description=current_message)
-                    await interaction.channel.send(embed=embed)
+                    self.embeds.append(embed)
                     current_message = fixed_line
 
             self.embeds.append(discord.Embed(description=current_message))
@@ -61,6 +61,7 @@ class SelectCard(discord.ui.View):
 class LookupCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.embeds = []
 
     @commands.slash_command(
         description="Look up a card"
@@ -84,8 +85,29 @@ class LookupCog(commands.Cog):
                     if responses:
                         break
 
-        if responses and len(responses) > 1:
-            await ctx.respond(view=SelectCard(responses, self.bot), ephemeral=True)
+        if responses:
+            if len(responses) > 1:
+                await ctx.respond(view=SelectCard(responses, self.bot), ephemeral=True)
+
+            else:
+                emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.bot.emojis}
+
+                current_message = ''
+                for line in responses[0]:
+                    fixed_line = line
+                    for slack_style, discord_style in emoji_map.items():
+                        fixed_line = fixed_line.replace(
+                            slack_style, discord_style)
+                    # Set maximum size for embed to maximum content size of embed minus the maximum for footer
+                    if len(current_message) + 2 + len(fixed_line) < 3952:
+                        current_message += f"\n{fixed_line}"
+                    else:
+                        embed = discord.Embed(description=current_message)
+                        self.embeds.append(embed)
+                        current_message = fixed_line
+
+                self.embeds.append(discord.Embed(description=current_message))
+                await ctx.respond(embeds=self.embeds, view=None, ephemeral=True)
 
 
 

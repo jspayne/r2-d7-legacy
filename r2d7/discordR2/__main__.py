@@ -30,23 +30,26 @@ class Droid(
     pass
 
 
+intents = discord.Intents.default()
+intents.message_content = True
+
 class DiscordClient(commands.Bot):
     def __init__(self, droid):
-        super().__init__()
+        super(DiscordClient, self).__init__(intents=intents)
         self.droid = droid
 
         self._here = os.path.dirname(os.path.abspath(__file__))
-        # load the cogs
-        for filename in os.listdir(os.path.join(self._here, "cogs")):
-            if filename.endswith("py"):
-                self.load_extension(f"cogs.{filename[:-3]}")
-                # print(filename, "loaded.")
+        # load the cogsDirectory
+        # for filename in os.listdir(os.path.join(self._here, "cogs")):
+        #     if filename.endswith("py"):
+        #         self.load_extension(f"cogs.{filename[:-3]}")
+        #         # print(filename, "loaded.")
 
 
     async def on_ready(self):
         logger.info(f"Bot online as {self.user}")
 
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
 
@@ -166,7 +169,7 @@ class DiscordClient(commands.Bot):
                         if finalEmbed and finalMessage:
                             finalEmbed.set_footer(
                                 text=f"{message.author.display_name} requested this data.",
-                                icon_url=message.author.avatar_url
+                                icon_url=message.author.avatar.url
                             )
                             await finalMessage.edit(embed=finalEmbed)
                         return
@@ -187,7 +190,8 @@ def main():
     )
 
     discord_token = os.getenv("DISCORD_TOKEN", None)
-    logging.info(f"discord token: {discord_token}")
+    discord_token = "NTY5NTU0MjkwMzMxMzUzMDg4.XMXJkw.oxL4sUkd2aU2tNCdwdUJ6tHVono"
+    logging.info(f"discordR2 token: {discord_token}")
 
     droid = Droid()
     if discord_token:
@@ -195,7 +199,7 @@ def main():
         bot = DiscordClient(droid)
         bot.run(discord_token)
     else:
-        logging.error("No discord token found, exiting.")
+        logging.error("No discordR2 token found, exiting.")
         return
 
 

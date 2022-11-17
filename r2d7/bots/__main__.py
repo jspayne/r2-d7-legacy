@@ -3,7 +3,7 @@ import time
 import logging
 
 from r2d7.slack.__main__ import main as slack_main
-from r2d7.discord.__main__ import main as discord_main
+from r2d7.discordR2.__main__ import main as discord_main
 
 logger = logging.getLogger(__name__)
 
