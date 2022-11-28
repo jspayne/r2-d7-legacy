@@ -63,7 +63,7 @@ class ListFormatter(DroidCore):
 
         xws_url = None
         if match[2] == 'yasb':
-            xws_url = f"http://squad2xws.herokuapp.com/yasb/xws/?{match[3]}"
+            xws_url = f"http://squad2xws.objectivecat.com/yasb/xws/?{match[3]}"
         if match[2] == 'launchbaynext':
             xws_url = f"https://launchbaynext.app/api/xws?lbx={match[3]}"
 

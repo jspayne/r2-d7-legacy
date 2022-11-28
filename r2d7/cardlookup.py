@@ -112,7 +112,8 @@ class CardLookup(DroidCore):
         'snap': 'temmin',
         'hellothere': 'obiwankenobi',
         'tub': 'technounionbomber',
-        'tfd': 'tradefederationdrone'
+        'tfd': 'tradefederationdrone',
+        'gunboat': 'alphaclassstarwing'
     }
 
     def load_data(self):
