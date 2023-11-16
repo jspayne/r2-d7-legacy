@@ -180,6 +180,8 @@ class ListFormatter(DroidCore):
 
     def handle_url(self, message):
         xws = self.get_xws(message)
+        if isinstance(xws, str):
+            xws = json.loads(xws)
         logger.debug(xws)
         if xws:
             return self.print_xws(xws, url=message)
