@@ -65,6 +65,7 @@ class SelectCard(discord.ui.View):
             faction = None
             legality_emoji = None
             emoji = None
+            standard_loadout = False
             if not restrictions:
                 faction = secondLine.split(": ")[0][1:]
             if "[Standard]" in firstLine:
@@ -79,7 +80,10 @@ class SelectCard(discord.ui.View):
             elif faction in faction_emoji:
                 emoji = faction_emoji[faction]
 
-            label = f"{legality_emoji or ''}{unique_pips or ''}{cardTrueName} ({cardType})"
+            if len(secondLine.split("  ")) == 3:  # if upgrade slots don't exist for the card, it's a Standard Loadout
+                standard_loadout = True
+
+            label = f"{legality_emoji or ''}{unique_pips or ''}{cardTrueName} ({cardType}{' Standard Loadout' if standard_loadout else ''})"
             if restrictions:
                 label += f", {restrictions}"
             self.label_to_fullResult_dict[label] = result
