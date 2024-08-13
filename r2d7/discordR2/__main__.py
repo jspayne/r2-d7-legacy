@@ -192,8 +192,8 @@ def main():
         level=log_level
     )
 
-    # discord_token = os.getenv("DISCORD_TOKEN", None)
-    discord_token = os.getenv("DEV_TOKEN", None)
+    discord_token = os.getenv("DISCORD_TOKEN", None)
+    # discord_token = os.getenv("DEV_TOKEN", None)
     logging.info(f"discord token: {discord_token}")
 
     droid = Droid()
