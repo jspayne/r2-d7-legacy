@@ -34,6 +34,26 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 
+class ConfirmDeleteView(discord.ui.View):
+    def __init__(self, user_message, finalEmbed):
+        super().__init__()
+        self.user_message = user_message
+        self.finalEmbed = finalEmbed
+
+    @discord.ui.button(label='Delete URL', style=discord.ButtonStyle.green)
+    async def confirm(self, button, interaction: discord.Interaction):
+        await self.user_message.delete()
+        self.finalEmbed.set_footer(
+            text=f"{self.user_message.author.display_name} requested this data.",
+            icon_url=self.user_message.author.avatar.url
+        )
+        await interaction.message.edit(embed=self.finalEmbed, view=None)
+
+    @discord.ui.button(label='Do Nothing', style=discord.ButtonStyle.red)
+    async def cancel(self, button, interaction: discord.Interaction):
+        await interaction.message.edit(embed=self.finalEmbed, view=None)
+
+
 class DiscordClient(commands.Bot):
     def __init__(self, droid):
         super(DiscordClient, self).__init__(intents=intents)
@@ -62,7 +82,9 @@ class DiscordClient(commands.Bot):
         # Check for new data
         if self.droid.needs_update():
             self.droid.load_data()
-            self.emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.emojis}
+
+        if self.droid.needs_update(points_database="XWA"):
+            self.droid.load_data("XWA")
 
         responses = None
 
@@ -132,8 +154,6 @@ class DiscordClient(commands.Bot):
                     return
 
             # Show embeds for all data pulled.
-            finalEmbed = None
-            finalMessage = None
             for response in responses:
                 emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.emojis}
 
@@ -152,36 +172,16 @@ class DiscordClient(commands.Bot):
                         current_message = fixed_line
 
                 finalEmbed = discord.Embed(description=current_message)
-                finalMessage = await message.channel.send(embed=finalEmbed)
+                finalMessage = await message.channel.send(
+                    embed=finalEmbed,
+                    view=ConfirmDeleteView(message, finalEmbed) if bot_has_message_permissions else None
+                )
+            #
+            # # allow the user to delete their query message
+            # if bot_has_message_permissions:
+            #     view = ConfirmDeleteView(message)
+            #     await message.channel.send("Delete your message?", view=view)
 
-            # allow the user to delete their query message
-            if bot_has_message_permissions:
-                prompt_delete_previous_message = await message.channel.send("Delete your message?")
-                await prompt_delete_previous_message.add_reaction("✅")
-                await prompt_delete_previous_message.add_reaction("❌")
-
-                try:
-                    reaction, user = await self.wait_for(
-                        event="reaction_add",
-                        timeout=10,
-                        check=lambda reaction, user: user == message.author
-                    )
-                    if str(reaction.emoji) == "✅":
-                        await message.delete()
-                        await prompt_delete_previous_message.delete()
-                        if finalEmbed and finalMessage:
-                            finalEmbed.set_footer(
-                                text=f"{message.author.display_name} requested this data.",
-                                icon_url=message.author.avatar.url
-                            )
-                            await finalMessage.edit(embed=finalEmbed)
-                        return
-                    if str(reaction.emoji) == "❌":
-                        await prompt_delete_previous_message.delete()
-                        return
-                except asyncio.TimeoutError:
-                    await prompt_delete_previous_message.delete()
-                    return
 
 
 def main():
@@ -192,8 +192,8 @@ def main():
         level=log_level
     )
 
-    discord_token = os.getenv("DISCORD_TOKEN", None)
-    # discord_token = os.getenv("DEV_TOKEN", None)
+    # discord_token = os.getenv("DISCORD_TOKEN", None)
+    discord_token = os.getenv("DEV_TOKEN", None)
     logging.info(f"discord token: {discord_token}")
 
     droid = Droid()

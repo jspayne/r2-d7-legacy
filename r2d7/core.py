@@ -69,31 +69,37 @@ class DroidCore():
         raise NotImplementedError()
 
     _data = None
+    _xwa_data = None
     GITHUB_USER = 'guidokessels'
     GITHUB_BRANCH = 'master'
     BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/xwing-data2/{GITHUB_BRANCH}/"
+    XWA_POINTS_URL = f"https://raw.githubusercontent.com/eirikmun/xwing-data2/{GITHUB_BRANCH}/"  # alternative points db
     MANIFEST = 'data/manifest.json'
     # VERSION_RE = re.compile(r'xwing-data/releases/tag/([\d\.]+)')
     check_frequency = 900  # 15 minutes
     formatted_link_regex = re.compile(r'(?P<url>http(s)?://.*?)\|(?P<text>.*)')
 
     @classmethod
-    def get_file(cls, filepath):
-        return filepath, requests.get(cls.BASE_URL + filepath)
+    def get_file(cls, filepath, points_database="AMG"):
+        url = cls.BASE_URL if points_database == "AMG" else cls.XWA_POINTS_URL
+        return filepath, requests.get(url + filepath)
 
     @classmethod
-    def get_version(cls):
+    def get_version(cls, points_database="AMG"):
+        user = cls.GITHUB_USER if points_database == "AMG" else "eirikmun"
+
         res = requests.get(
-            f"https://api.github.com/repos/{cls.GITHUB_USER}/xwing-data2/branches/{cls.GITHUB_BRANCH}")
+            f"https://api.github.com/repos/{user}/xwing-data2/branches/{cls.GITHUB_BRANCH}")
         if res.status_code != 200:
             logger.warning(f"Got {res.status_code} checking data version.")
             return False
         return res.json()['commit']['sha']
 
-    async def _load_data(self):
-        res = requests.get(self.BASE_URL + self.MANIFEST)
+    async def _load_data(self, points_database="AMG"):
+        url = self.BASE_URL if points_database == "AMG" else self.XWA_POINTS_URL
+        res = requests.get(url + self.MANIFEST)
         if res.status_code != 200:
-            raise DroidException( f"Got {res.status_code} GETing {res.url}.")
+            raise DroidException(f"Got {res.status_code} GETing {res.url}.")
         manifest = res.json()
 
         files = (
@@ -106,7 +112,7 @@ class DroidCore():
 
         self._data = {}
         loop = asyncio.get_event_loop()
-        futures = [loop.run_in_executor(None, self.get_file, filename)
+        futures = [loop.run_in_executor(None, self.get_file, filename, points_database)
                    for filename in files]
 
         self.data_version = self.get_version()
@@ -155,7 +161,7 @@ class DroidCore():
         category = self._data.setdefault(category, {})
         category[card['xws']] = card
 
-    def load_data(self):
+    def load_data(self, points_database="AMG"):
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -163,17 +169,17 @@ class DroidCore():
             # yet, so make one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        loop.run_until_complete(self._load_data())
+        loop.run_until_complete(self._load_data(points_database))
 
     _last_checked_version = None
 
-    def needs_update(self):
+    def needs_update(self, points_database="AMG"):
         if (time.time() - self._last_checked_version) < self.check_frequency:
             logger.debug("Checked version recently.")
             return False
 
-        current_version = self.get_version()
-        logger.debug(f"Current xwing-data version: {current_version}")
+        current_version = self.get_version(points_database)
+        logger.debug(f"Current {points_database} xwing-data version: {current_version}")
         self._last_checked_version = time.time()
         return self.data_version != current_version
 
@@ -182,6 +188,12 @@ class DroidCore():
         if self._data is None:
             self.load_data()
         return self._data
+
+    @property
+    def xwa_data(self):
+        if self._xwa_data is None:
+            self.load_data("XWA")
+        return self._xwa_data
 
     @staticmethod
     def partial_canonicalize(string):

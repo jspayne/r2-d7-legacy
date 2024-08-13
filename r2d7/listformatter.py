@@ -10,6 +10,7 @@ from r2d7.core import DroidCore, DroidException
 
 logger = logging.getLogger(__name__)
 
+
 class Legality(Enum):
     standard = "Standard"
     extended = "Extended"
@@ -47,7 +48,7 @@ class ListFormatter(DroidCore):
         re.compile(r'(https?://(yasb)\.app/(?:[^?/]*/)?\?(.*))'),
         re.compile(
             r'(https://(launchbaynext)\.app/[a-z]*\?lbx=([^&]+)(?:&mode=[a-z]+)?)'),
-        re.compile( # legacy LBN app links
+        re.compile(  # legacy LBN app links
             r'(https://(launch-bay-next)\.herokuapp\.com/[a-z]*\?lbx=([^&]+)(?:&mode=[a-z]+)?)'),
     )
 
@@ -95,28 +96,29 @@ class ListFormatter(DroidCore):
 
     def get_upgrade_cost(self, pilot_card, upgrade):
         cost = upgrade.get('cost', {})
-        if 'variable' in cost:
-            if cost['variable'] == 'size':
-                stat = pilot_card['ship']['size']
-            elif cost['variable'] in pilot_card:
-                stat = pilot_card[cost['variable']]
-            else:
-                stat = 0
-                for stat_block in pilot_card['ship']['stats']:
-                    if stat_block['type'] == cost['variable']:
-                        stat = stat_block['value']
-                        break
-            return cost['values'][str(stat)]
-        else:
+        if 'variable' not in cost:
             return cost.get('value', 0)
+        if cost['variable'] == 'size':
+            stat = pilot_card['ship']['size']
+        elif cost['variable'] in pilot_card:
+            stat = pilot_card[cost['variable']]
+        else:
+            stat = next(
+                (
+                    stat_block['value']
+                    for stat_block in pilot_card['ship']['stats']
+                    if stat_block['type'] == cost['variable']
+                ),
+                0,
+            )
+        return cost['values'][str(stat)]
 
     def print_xws(self, xws, url=None):
         name = xws.get('name', 'Nameless Squadron')
         if 'vendor' in xws:
             if len(list(xws['vendor'].keys())) > 1:
                 logger.warning(f"More than one vendor found! {xws['vendor']}")
-            vendor = list(xws['vendor'].values())
-            if len(vendor) > 0:
+            if vendor := list(xws['vendor'].values()):
                 vendor = vendor[0]
                 if 'link' in vendor:
                     url = vendor['link']
@@ -138,7 +140,7 @@ class ListFormatter(DroidCore):
             except KeyError:
                 # Unrecognised pilot
                 output.append(self.iconify('question') * 2 + ' ' +
-                        self.italics('Unknown Pilot: ' + pilot_name))
+                              self.italics(f'Unknown Pilot: {pilot_name}'))
                 continue
             pilot_points = pilot_card.get('cost', 0)
             loadout_used = 0
@@ -146,7 +148,7 @@ class ListFormatter(DroidCore):
             initiative = pilot_card['initiative']
 
             legality.update(pilot_card.get('standard', False), pilot_card.get('extended', False),
-                    epic = pilot_card.get('epic', False))
+                            epic=pilot_card.get('epic', False))
 
             cards = self.get_pilot_cards(pilot)
             upgrades = []
@@ -159,28 +161,28 @@ class ListFormatter(DroidCore):
                 upgrades.append(upgrade_text)
                 loadout_used += self.get_upgrade_cost(pilot_card, upgrade)
                 legality.update(upgrade.get('standard', False), upgrade.get('extended', False),
-                        epic = upgrade.get('epic', False))
+                                epic=upgrade.get('epic', False))
 
             ship_line = (
-                self.iconify(pilot_card['ship']['name']) +
-                self.iconify(f"initiative{initiative}") +
-                f" {self.italics(self.wiki_link(pilot_card['name']))}"
+                    self.iconify(pilot_card['ship']['name']) +
+                    self.iconify(f"initiative{initiative}") +
+                    f" {self.italics(self.wiki_link(pilot_card['name']))}"
             )
             if upgrades:
-                ship_line += ':' + f" {', '.join(upgrades)}"
-            ship_line += ' ' + self.bold(f"[{pilot_points}]") + f"[{loadout_used}/{loadout_total}]"
+                ship_line += f": {', '.join(upgrades)}"
+            ship_line += f' {self.bold(f"[{pilot_points}]")}[{loadout_used}/{loadout_total}]'
 
             output.append(ship_line)
             squad_points += pilot_points
 
         output[0] += self.bold(f"[{squad_points}]")
-        if (legality.legality != Legality.banned):
-            output[0] += " " + self.bold(f"[{legality.legality.value}]")
+        if legality.legality != Legality.banned:
+            output[0] += f' {self.bold(f"[{legality.legality.value}]")}'
         return [output]
 
     def handle_url(self, message):
         xws = self.get_xws(message)
+        if isinstance(xws, str):
+            xws = json.loads(xws)
         logger.debug(xws)
-        if xws:
-            return self.print_xws(xws, url=message)
-        return []
+        return self.print_xws(xws, url=message) if xws else []
