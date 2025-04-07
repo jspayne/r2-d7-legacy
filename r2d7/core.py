@@ -70,7 +70,7 @@ class DroidCore():
 
     _data = None
     _xwa_data = None
-    GITHUB_USER = 'guidokessels'
+    GITHUB_USER = 'xwingtmg'  # changed from guidokessels. This should update the default data to the XWA points.
     GITHUB_BRANCH = 'master'
     BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/xwing-data2/{GITHUB_BRANCH}/"
     XWA_POINTS_URL = f"https://raw.githubusercontent.com/eirikmun/xwing-data2/{GITHUB_BRANCH}/"  # alternative points db
