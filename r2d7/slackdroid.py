@@ -31,8 +31,7 @@ class SlackDroid(DroidCore):
                 if 'sides' in card:
                     for side in card['sides']:
                         if 'ability' in side:
-                            side['ability'] = self.convert_text(
-                                side['ability'])
+                            side['ability'] = self.convert_text(''.join(side['ability']))
                         if 'shipAbility' in side:
                             side['shipAbility']['text'] = self.convert_text(
                                 side['shipAbility']['text'])
@@ -77,7 +76,7 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
             name = re.sub(r'[^a-zA-Z0-9]', '', name)
         name = name.replace('+', 'plus')
         if name in ['bomb', 'shield']:
-            name = 'x' + name
+            name = f'x{name}'
         # Lock is a standard emoji, so we'll stick with targetlock for 2.0
         elif name == 'lock':
             name = 'targetlock'
@@ -150,7 +149,7 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
         text = re.sub(f"\\b({'|'.join(self._bold_words)})\\b", '*\\1*', text)
         text = re.sub(r'\[([^\[\]:]+)\]', lambda pat: f":{pat.group(1).lower()}:", text)
         lines = text.split('__BREAK__')
-        return [line.strip() for line in lines if line != '']
+        return ''.join([line.strip() for line in lines if line != ''])
 
     @classmethod
     def wiki_link(cls, card_name, crew_of_pilot=False, wiki_name=False):
@@ -162,7 +161,7 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
         # fudged_name = re.sub(r'\(Scum\)', '(S&V)', fudged_name)
         # fudged_name = re.sub(r'\((PS9|TFA)\)', '(HOR)', fudged_name)
         if 'Core Set' in card_name:
-            fudged_name = 'X-Wing_' + fudged_name
+            fudged_name = f'X-Wing_{fudged_name}'
         fudged_name = re.sub(r'-wing', '-Wing', fudged_name)
         fudged_name = re.sub(r'\/V', '/v', fudged_name)
         fudged_name = re.sub(r'\/X', '/x', fudged_name)
