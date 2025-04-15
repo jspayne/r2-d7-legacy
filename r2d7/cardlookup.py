@@ -20,6 +20,7 @@ class CardLookup(DroidCore):
         self.register_handler(r'!(crit)', self.handle_crit)
 
     _lookup_data = None
+    _lookup_data_xwa = None
     _core_damage_deck = []
 
     _action_order = (
@@ -116,17 +117,22 @@ class CardLookup(DroidCore):
         'gunboat': 'alphaclassstarwing'
     }
 
-    def load_data(self):
-        super().load_data()
+    def load_data(self, points_database="AMG"):
+        if self.data is None:
+            self._data = {}
+            super().load_data(points_database)
+
         self._init_lookup_data()
 
     def _init_lookup_data(self):
         next_id = 0
         self._lookup_data = {}
+        self._lookup_data_xwa = {}
         for cards in self.data.values():
             for card in cards.values():
                 name = self.partial_canonicalize(card['name'])
                 self._lookup_data.setdefault(name, []).append(card)
+                self._lookup_data_xwa.setdefault(name, []).append(card)
                 card['_id'] = next_id
                 next_id += 1
                 if card['category'] == 'damage':
@@ -160,6 +166,8 @@ class CardLookup(DroidCore):
     def lookup(self, lookup):
         if self._lookup_data is None:
             self.load_data()
+        if self._lookup_data_xwa is None:
+            self.load_data("XWA")
 
         lookup = unescape(lookup)
         logger.debug(f"Looking up: {repr(lookup)}")
@@ -173,9 +181,7 @@ class CardLookup(DroidCore):
             matches = []
             slot_filter = None
             points_filter = None
-            match = self.filter_pattern.match(lookup)
-            if not match:
-                match = (None, None, lookup, None, None, None)
+            match = self.filter_pattern.match(lookup) or (None, None, lookup, None, None, None)
             slot_filter = match[1] or match[5]
 
             if match[2]:
@@ -248,8 +254,7 @@ class CardLookup(DroidCore):
             stats.append(self.iconify(f"initiative{pilot['initiative']}"))
             if pilot.get('engagement', -1) in (0, 1):
                 stats.append(self.iconify(f"engagement{pilot['engagement']}"))
-        for stat in ship['stats']:
-            stats.append(self.print_stat(stat))
+        stats.extend(self.print_stat(stat) for stat in ship['stats'])
         if pilot and 'charges' in pilot:
             stats.append(self.print_charge(pilot['charges']))
         if pilot and 'force' in pilot:
@@ -313,7 +318,7 @@ class CardLookup(DroidCore):
         result = []
         blank = self.iconify('blank')
         for speed, moves in dial.items():
-            line = [f'`{speed}`' + ' ']
+            line = [f'`{speed}` ']
             for dialgen_move, droid_move in self.maneuver_key:
                 if dialgen_move not in used_moves:
                     continue
@@ -330,7 +335,7 @@ class CardLookup(DroidCore):
 
     def pilot_sort_key(self, pilot):
         try:
-            return int(pilot['initiative']) + (pilot.get('cost', 0) / 200)
+            return int(pilot['initiative']) + (pilot.get('cost', 0) / 20)
         except ValueError:
             # Put ?s at the end
             return 9
@@ -368,7 +373,7 @@ class CardLookup(DroidCore):
                         if slot not in ship['slots']
                     ])
                     if slots:
-                        slots = ' ' + slots
+                        slots = f' {slots}'
                     calculate = ' ' + self.iconify('calculate') if self.has_calculate(pilot) else ''
                     name = self.format_name(pilot)
                     pilots_printed.append(
@@ -481,27 +486,27 @@ class CardLookup(DroidCore):
 
     def print_cost(self, cost):
         try:
-            if 'variable' in cost:
-                out = ''
-                if cost['variable'] == 'shields':
-                    cost['variable'] = 'shield'
-                if cost['variable'] in self.stat_colours.keys():
-                    if cost['variable'] != self.stat_colours[cost['variable']]:
-                        out += self.iconify(
-                            f"{self.stat_colours[cost['variable']]}{cost['variable']}")
-                    icons = [self.iconify(f"{cost['variable']}{stat}")
-                            for stat in cost['values'].keys()]
-                elif cost['variable'] == 'size':
-                    icons = [self.iconify(f"{size}base")
-                            for size in cost['values'].keys()]
-                else:
-                    logger.warning(f"Unrecognised cost variable: {cost['variable']}")
-                    icons = ['?' for stat in cost['values']]
-                out += ''.join(
-                    f"{icon}{cost}" for icon, cost in zip(icons, cost['values'].values()))
-            else:
-                out = cost['value']
-        except TypeError:
+            # if 'variable' in cost:
+            #     out = ''
+            #     if cost['variable'] == 'shields':
+            #         cost['variable'] = 'shield'
+            #     if cost['variable'] in self.stat_colours.keys():
+            #         if cost['variable'] != self.stat_colours[cost['variable']]:
+            #             out += self.iconify(
+            #                 f"{self.stat_colours[cost['variable']]}{cost['variable']}")
+            #         icons = [self.iconify(f"{cost['variable']}{stat}")
+            #                 for stat in cost['values'].keys()]
+            #     elif cost['variable'] == 'size':
+            #         icons = [self.iconify(f"{size}base")
+            #                 for size in cost['values'].keys()]
+            #     else:
+            #         logger.warning(f"Unrecognised cost variable: {cost['variable']}")
+            #         icons = ['?' for stat in cost['values']]
+            #     out += ''.join(
+            #         f"{icon}{cost}" for icon, cost in zip(icons, cost['values'].values()))
+            # else:
+            out = cost['value']
+        except (TypeError, KeyError):
             out = cost
         return f"[{out}]"
 
@@ -522,7 +527,7 @@ class CardLookup(DroidCore):
                     self.iconify(f"{self.stat_colours[stat]}{stat}") +
                     self.iconify(f"{stat}{symbol}{grant['amount']}")
                 )
-        return out if out else None
+        return out or None
 
     def print_attack(self, atk):
         if atk['minrange'] != atk['maxrange']:
@@ -581,8 +586,7 @@ class CardLookup(DroidCore):
             ))))
 
             if 'restrictions' in card:
-                restrictions = self.print_restrictions(card['restrictions'])
-                if restrictions:
+                if restrictions := self.print_restrictions(card['restrictions']):
                     text.append(restrictions)
 
             if is_pilot:
@@ -595,11 +599,10 @@ class CardLookup(DroidCore):
             if 'ability' in side:
                 # this Restrictions bit handles weird Bold/Italics problems in Discord for Ship Configurations that replace ship abilities.
                 # the database isn't 100% consistent on these so they're a bit finicky
-                if card.get('restrictions'):
-                    if card['restrictions'][0].get('shipAbility'):
-                        if card['name'] == 'Independent Calculations':
-                            side['ability'][0] = side['ability'][0].replace("***", "**")
-                        side['ability'][-1] = side['ability'][-1].replace("***", "**")
+                if card.get('restrictions') and card['restrictions'][0].get('shipAbility'):
+                    if card['name'] == 'Independent Calculations':
+                        side['ability'][0] = side['ability'][0].replace("***", "**")
+                    side['ability'][-1] = side['ability'][-1].replace("***", "**")
                 if card['name'] == 'TIE Defender Elite':
                     side['ability'][-1] = side['ability'][-1].replace("***", '**')
                 text.append(side['ability'])
@@ -621,8 +624,7 @@ class CardLookup(DroidCore):
                 last_line.append(
                     self.print_charge(side['force'], force=True, plus=True))
             if 'grants' in side:
-                grants = self.print_grants(side['grants'])
-                if grants:
+                if grants := self.print_grants(side['grants']):
                     last_line += grants
             if last_line:
                 text.append(' | '.join(last_line))
@@ -652,20 +654,15 @@ class CardLookup(DroidCore):
 
     def print_image(self, card):
         text = []
-        if 'sides' not in card:
-            if 'image' in card:
-                text.append(card['image'])
-        else:
-            for side in card['sides']:
-                if 'image' in side:
-                    text.append(side['image'])
+        if 'sides' in card:
+            text.extend(side['image'] for side in card['sides'] if 'image' in side)
+        elif 'image' in card:
+            text.append(card['image'])
         return text
 
     def handle_lookup(self, lookup):
         output = []
-        count = 0
-        for card in self.lookup(lookup):
-            count += 1
+        for count, card in enumerate(self.lookup(lookup), start=1):
             if count > 15:
                 raise UserError(
                     'Your search matched more than 15 cards, please be more specific.'
@@ -675,9 +672,7 @@ class CardLookup(DroidCore):
 
     def handle_image_lookup(self, lookup):
         output = []
-        count = 0
-        for card in self.lookup(lookup):
-            count += 1
+        for count, card in enumerate(self.lookup(lookup), start=1):
             if count > 10:
                 raise UserError(
                     'Your search matched more than 10 cards, please be more specific.'

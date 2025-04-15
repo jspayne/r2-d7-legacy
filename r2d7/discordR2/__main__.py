@@ -166,6 +166,7 @@ class DiscordClient(commands.Bot):
                 current_message = ''
                 for line in response:
                     fixed_line = line
+                    print(line)
                     for slack_style, discord_style in emoji_map.items():
                         if isinstance(fixed_line, str):
                             fixed_line = fixed_line.replace(
@@ -201,8 +202,8 @@ def main():
         level=log_level
     )
 
-    discord_token = os.getenv("DISCORD_TOKEN", None)
-    # discord_token = os.getenv("DEV_TOKEN", None)
+    # discord_token = os.getenv("DISCORD_TOKEN", None)
+    discord_token = os.getenv("DEV_TOKEN", None)
     logging.info(f"discord token: {discord_token}")
 
     droid = Droid()

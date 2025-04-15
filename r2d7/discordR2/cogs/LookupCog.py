@@ -142,7 +142,7 @@ class LookupCog(commands.Cog):
     async def card(self, ctx: discord.ApplicationContext, query):
         results = None
         if self.bot.droid.needs_update():
-            self.bot.droid.load_data()
+            self.bot.droid.load_data("XWA")
 
         if not ctx.guild:
             for regex, handle_method in self.bot.droid._dm_handlers.items():

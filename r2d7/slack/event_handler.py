@@ -40,8 +40,8 @@ class RtmEventHandler(object):
             logger.debug(event)
 
             # Check for new data
-            if self.droid.needs_update():
-                self.droid.load_data()
+            if self.droid.needs_update("XWA"):
+                self.droid.load_data("XWA")
 
             # Direct responses
             responses = []

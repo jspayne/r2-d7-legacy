@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 class SlackDroid(DroidCore):
     def __init__(self):
         super().__init__()
-        self.load_data()
+        # self.load_data()
 
-    def load_data(self):
-        super().load_data()
+    def load_data(self, points_source="AMG"):
+        super().load_data(points_source)
 
         # References to conditions and ship abilities are highlighted
         self._ref_names = set()
@@ -44,7 +44,10 @@ class SlackDroid(DroidCore):
                     card['shipAbility']['text'] = self.convert_text(
                         card['shipAbility']['text'])
                 if category == 'damage':
-                    card['text'] = self.convert_text(card['text'])
+                    try:
+                        card['text'] = self.convert_text(card['text'])
+                    except TypeError:
+                        print(card['text'])
 
 
     def helpMessage(self):
@@ -77,7 +80,6 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
         name = name.replace('+', 'plus')
         if name in ['bomb', 'shield']:
             name = f'x{name}'
-        # Lock is a standard emoji, so we'll stick with targetlock for 2.0
         elif name == 'lock':
             name = 'targetlock'
         elif name == 'rebelalliance':
@@ -92,10 +94,10 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
         #     name = 'delta7aethersprite'
         return f":{name}:"
 
-    @staticmethod
-    def bold(text):
-        return f"*{text}*"
-
+    # @staticmethod
+    # def bold(text):
+    #     return f"*{text}*"
+    #
     @staticmethod
     def italics(text):
         return f"_{text}_"
