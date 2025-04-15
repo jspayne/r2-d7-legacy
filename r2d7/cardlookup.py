@@ -537,7 +537,7 @@ class CardLookup(DroidCore):
             ranges
         )
 
-    def print_card(self, card):
+    def print_card(self, card) -> list:
         is_ship = card['category'] == 'ship'
         is_pilot = card['category'] == 'pilot'
         is_crit = card['category'] == 'damage'
@@ -602,7 +602,7 @@ class CardLookup(DroidCore):
                         side['ability'][-1] = side['ability'][-1].replace("***", "**")
                 if card['name'] == 'TIE Defender Elite':
                     side['ability'][-1] = side['ability'][-1].replace("***", '**')
-                text += side['ability']
+                text.append(side['ability'])
 
             if 'text' in side:
                 text.append(self.italics(side['text']))
