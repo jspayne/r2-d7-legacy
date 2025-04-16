@@ -19,4 +19,4 @@ class DiscordDroid(SlackDroid):
         """
         Discord doesn't allow inline links.
         """
-        return f"[{name}]({url.replace(' ', '%20')})"
+        return f"[{name}]({url})"

@@ -42,22 +42,16 @@ class ConfirmDeleteView(discord.ui.View):
 
     @discord.ui.button(label='Delete URL', style=discord.ButtonStyle.green)
     async def confirm(self, button, interaction: discord.Interaction):
-        if interaction.user == self.user_message.author:
-            await self.user_message.delete()
-            self.finalEmbed.set_footer(
-                text=f"{self.user_message.author.display_name} requested this data.",
-                icon_url=self.user_message.author.avatar.url
-            )
-            await interaction.message.edit(embed=self.finalEmbed, view=None)
-        else:
-            await interaction.response.send_message("That's not yours, you can't delete it!", ephemeral=True)
+        await self.user_message.delete()
+        self.finalEmbed.set_footer(
+            text=f"{self.user_message.author.display_name} requested this data.",
+            icon_url=self.user_message.author.avatar.url
+        )
+        await interaction.message.edit(embed=self.finalEmbed, view=None)
 
     @discord.ui.button(label='Do Nothing', style=discord.ButtonStyle.red)
     async def cancel(self, button, interaction: discord.Interaction):
-        if interaction.user == self.user_message.author:
-            await interaction.message.edit(embed=self.finalEmbed, view=None)
-        else:
-            await interaction.response.send_message("That's not yours!", ephemeral=True)
+        await interaction.message.edit(embed=self.finalEmbed, view=None)
 
 
 class DiscordClient(commands.Bot):
