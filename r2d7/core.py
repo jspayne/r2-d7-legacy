@@ -206,7 +206,7 @@ class DroidCore():
     @property
     def data(self):
         if self._data is None or self._data == {}:
-            with open("AMG_card_data.json", 'r') as file:
+            with open("../AMG_card_data.json", 'r') as file:
                 self._data = json.load(file)
         return self._data
 
