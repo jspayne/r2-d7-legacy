@@ -70,10 +70,10 @@ class DroidCore():
 
     _data = None
     _xwa_data = None
-    GITHUB_USER = 'guidokessels'
+    GITHUB_USER = 'gregkash16'
     GITHUB_BRANCH = 'master'
     BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/xwing-data2/{GITHUB_BRANCH}/"
-    XWA_POINTS_URL = f"https://raw.githubusercontent.com/eirikmun/xwing-data2/{GITHUB_BRANCH}/"  # alternative points db
+    XWA_POINTS_URL = f"https://raw.githubusercontent.com/gregkash16/xwing-data2/{GITHUB_BRANCH}/"  # alternative points db
     MANIFEST = 'data/manifest.json'
     # VERSION_RE = re.compile(r'xwing-data/releases/tag/([\d\.]+)')
     check_frequency = 900  # 15 minutes
@@ -86,7 +86,7 @@ class DroidCore():
 
     @classmethod
     def get_version(cls, points_database="AMG"):
-        user = cls.GITHUB_USER if points_database == "AMG" else "eirikmun"
+        user = cls.GITHUB_USER if points_database == "AMG" else "gregkash16"
 
         res = requests.get(
             f"https://api.github.com/repos/{user}/xwing-data2/branches/{cls.GITHUB_BRANCH}")
