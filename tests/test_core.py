@@ -43,7 +43,7 @@ def test_threaded(testbot):
         # If a new event loop isn't created for the thread, this will crash
         try:
             assert threading.current_thread() != threading.main_thread()
-            testbot.load_data("XWA")
+            testbot.load_data()
         except Exception as error:
             # Pytest will catch this stdout and print it and the signal will
             # fail the test

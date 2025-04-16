@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class CritRandom(CardLookup):
     def __init__(self):
-        pass
+
 
     def load_data(self):
         super().load_data()

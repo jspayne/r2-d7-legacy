@@ -80,7 +80,7 @@ class ListFormatter(DroidCore):
                 raise DroidException(f"YASB error: ({data['message']}")
             return data
 
-    def get_pilot_cards(self, pilot, points_source="AMG"):
+    def get_pilot_cards(self, pilot):
         cards = []
         if 'upgrades' in pilot:
             for slot, upgrades in pilot['upgrades'].items():
@@ -89,39 +89,31 @@ class ListFormatter(DroidCore):
                     continue
                 for upgrade in upgrades:
                     try:
-                        if points_source == "AMG":
-                            cards.append(self.data['upgrade'][upgrade])
-                        else:
-                            cards.append(self.xwa_data['upgrade'][upgrade])
+                        cards.append(self.data['upgrade'][upgrade])
                     except KeyError:
                         cards.append(None)
         return cards
 
     def get_upgrade_cost(self, pilot_card, upgrade):
-        try:
-            return upgrade['cost']['value']
-        except KeyError:
-            return 0
+        cost = upgrade.get('cost', {})
+        if 'variable' not in cost:
+            return cost.get('value', 0)
+        if cost['variable'] == 'size':
+            stat = pilot_card['ship']['size']
+        elif cost['variable'] in pilot_card:
+            stat = pilot_card[cost['variable']]
+        else:
+            stat = next(
+                (
+                    stat_block['value']
+                    for stat_block in pilot_card['ship']['stats']
+                    if stat_block['type'] == cost['variable']
+                ),
+                0,
+            )
+        return cost['values'][str(stat)]
 
-        # cost = upgrade.get('cost', {})
-        # if 'variable' not in cost:
-        #     return cost.get('value', 0)
-        # if cost['variable'] == 'size':
-        #     stat = pilot_card['ship']['size']
-        # elif cost['variable'] in pilot_card:
-        #     stat = pilot_card[cost['variable']]
-        # else:
-        #     stat = next(
-        #         (
-        #             stat_block['value']
-        #             for stat_block in pilot_card['ship']['stats']
-        #             if stat_block['type'] == cost['variable']
-        #         ),
-        #         0,
-        #     )
-        # return cost['values'][str(stat)]
-
-    def print_xws(self, xws, url=None, points_source="AMG"):
+    def print_xws(self, xws, url=None):
         name = xws.get('name', 'Nameless Squadron')
         if 'vendor' in xws:
             if len(list(xws['vendor'].keys())) > 1:
@@ -144,10 +136,7 @@ class ListFormatter(DroidCore):
             except KeyError:
                 pilot_name = pilot['name']
             try:
-                if points_source == 'AMG':
-                    pilot_card = self.data['pilot'][pilot_name]
-                else:
-                    pilot_card = self.xwa_data['pilot'][pilot_name]
+                pilot_card = self.data['pilot'][pilot_name]
             except KeyError:
                 # Unrecognised pilot
                 output.append(self.iconify('question') * 2 + ' ' +
@@ -188,10 +177,7 @@ class ListFormatter(DroidCore):
 
         output[0] += self.bold(f"[{squad_points}]")
         if legality.legality != Legality.banned:
-            if points_source == "AMG":
-                output[0] += f' {self.bold(f"[{legality.legality.value}]")}'
-            else:
-                output[0] += f" {self.bold('[XWA BETA]')}"
+            output[0] += f' {self.bold(f"[{legality.legality.value}]")}'
         return [output]
 
     def handle_url(self, message):
@@ -199,7 +185,4 @@ class ListFormatter(DroidCore):
         if isinstance(xws, str):
             xws = json.loads(xws)
         logger.debug(xws)
-        points_source = "AMG"
-        if '&d=v9Z' in message:
-            points_source = "XWA" if message.split('&d=v9Z')[1][0] == 'b' else "AMG"
-        return self.print_xws(xws, url=message, points_source=points_source) if xws else []
+        return self.print_xws(xws, url=message) if xws else []

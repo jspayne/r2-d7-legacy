@@ -11,7 +11,6 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-
 def is_pattern_type(obj):
     if hasattr(re, 'Pattern'):
         return isinstance(obj, re.Pattern)
@@ -71,10 +70,10 @@ class DroidCore():
 
     _data = None
     _xwa_data = None
-    GITHUB_USER = 'gregkash12'
+    GITHUB_USER = 'gregkash16'  # changed from guidokessels. This should update the default data to the XWA points.
     GITHUB_BRANCH = 'master'
     BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/xwing-data2/{GITHUB_BRANCH}/"
-    XWA_POINTS_URL = f"https://raw.githubusercontent.com/gregkash12/xwing-data2/{GITHUB_BRANCH}/"  # alternative points db
+    XWA_POINTS_URL = f"https://raw.githubusercontent.com/gregkash16/xwing-data2/{GITHUB_BRANCH}/"  # alternative points db
     MANIFEST = 'data/manifest.json'
     # VERSION_RE = re.compile(r'xwing-data/releases/tag/([\d\.]+)')
     check_frequency = 900  # 15 minutes
@@ -87,7 +86,7 @@ class DroidCore():
 
     @classmethod
     def get_version(cls, points_database="AMG"):
-        user = cls.GITHUB_USER if points_database == "AMG" else "gregkash12"
+        user = cls.GITHUB_USER if points_database == "AMG" else "eirikmun"
 
         res = requests.get(
             f"https://api.github.com/repos/{user}/xwing-data2/branches/{cls.GITHUB_BRANCH}")
@@ -111,12 +110,12 @@ class DroidCore():
                 for ship in faction['ships']]
         )
 
-        self._xwa_data = {}
+        self._data = {}
         loop = asyncio.get_event_loop()
         futures = [loop.run_in_executor(None, self.get_file, filename, points_database)
                    for filename in files]
 
-        self.data_version = self.get_version(points_database)
+        self.data_version = self.get_version()
         self._last_checked_version = time.time()
 
         for filepath, res in await asyncio.gather(*futures):
@@ -129,56 +128,40 @@ class DroidCore():
 
             if category == 'upgrades':
                 for card in raw_data:
-                    self.add_card('upgrade', card, points_database,
+                    self.add_card('upgrade', card,
                                   subcat=remaining.split('.')[0])
 
             elif category == 'pilots':
                 first_ship = ship = raw_data
-
-                # multi-faction ships: this is used to update the pilot list for the ship
-                if 'ship' in self._xwa_data and ship['xws'] in self._xwa_data['ship']:
-                    first_ship = self._xwa_data['ship'][ship['xws']]
-
+                if 'ship' in self._data and ship['xws'] in self._data['ship']:
+                    first_ship = self._data['ship'][ship['xws']]
                 for pilot in ship['pilots']:
-                    # adds a field to the PILOT that indicates the ship stats. Avoids circular references
-                    ship_without_pilot_list = dict(first_ship.items())
-                    del ship_without_pilot_list['pilots']
-                    pilot['ship'] = ship_without_pilot_list
-                    pilot['ship']['faction'] = ship['faction']
+                    pilot['ship'] = first_ship
                     pilot['faction'] = ship['faction']
-                    self.add_card('pilot', pilot, points_database)
+                    self.add_card('pilot', pilot)
                 ship['pilots'] = {ship['faction']: ship['pilots']}
-
                 if first_ship is not ship:
                     first_ship['pilots'].update(ship['pilots'])
                 else:
-                    self.add_card('ship', ship, points_database)
+                    self.add_card('ship', ship)
 
             elif category == 'damage-decks':
                 for card in raw_data['cards']:
                     card['name'] = card['title']
                     card['xws'] = self.partial_canonicalize(card['name'])
                     card['deck'] = remaining[:-5]
-                    self.add_card('damage', card, points_database)
+                    self.add_card('damage', card)
 
             elif category == 'conditions':
                 for card in raw_data:
-                    self.add_card('condition', card, points_database)
+                    self.add_card('condition', card)
 
-        if not Path(f"../{points_database}_card_data.json").exists():
-            with open(f"../{points_database}_card_data.json", 'w') as file:
-                json.dump(self._data, file, indent=4)
-
-    def add_card(self, category, card, points_database="AMG", subcat=None):
+    def add_card(self, category, card, subcat=None):
         card['category'] = subcat or category
-        if points_database == "AMG":
-            category = self._data.setdefault(category, {})
-        else:
-            category = self._xwa_data.setdefault(category, {})
+        category = self._data.setdefault(category, {})
         category[card['xws']] = card
 
-    def load_data(self, points_database="XWA"):
-        print("running core.py load_data")
+    def load_data(self, points_database="AMG"):
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -186,14 +169,11 @@ class DroidCore():
             # yet, so make one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        loop.run_until_complete(self._load_data("XWA"))
-        loop.run_until_complete(self._load_data("AMG"))
+        loop.run_until_complete(self._load_data(points_database))
 
     _last_checked_version = None
 
     def needs_update(self, points_database="AMG"):
-        if not self._last_checked_version:
-            return True
         if (time.time() - self._last_checked_version) < self.check_frequency:
             logger.debug("Checked version recently.")
             return False
@@ -205,14 +185,13 @@ class DroidCore():
 
     @property
     def data(self):
-        if self._data is None or self._data == {}:
-            with open("../AMG_card_data.json", 'r') as file:
-                self._data = json.load(file)
+        if self._data is None:
+            self.load_data()
         return self._data
 
     @property
     def xwa_data(self):
-        if self._xwa_data is None or self._xwa_data == {}:
+        if self._xwa_data is None:
             self.load_data("XWA")
         return self._xwa_data
 
