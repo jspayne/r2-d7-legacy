@@ -608,9 +608,9 @@ class CardLookup(DroidCore):
                 text.append(self.italics(side['text']))
 
             if 'shipAbility' in side:  # some Config cards have replacement Ship Abilities
-                text.append(self.print_ship_ability(side['shipAbility']))
+                text += self.print_ship_ability(side['shipAbility'])
             elif 'shipAbility' in card:
-                text.append(self.print_ship_ability(card['shipAbility']))
+                text += self.print_ship_ability(card['shipAbility'])
 
             last_line = []
             if 'attack' in side:
@@ -631,19 +631,19 @@ class CardLookup(DroidCore):
                 if side['device']['type'] == 'Remote':
                     side['device']['category'] = 'Remote'
                     side['device']['ability'] = side['device']['effect']
-                    text.append(self.print_card(side['device']))
+                    text += self.print_card(side['device'])
                 else:
-                    text.append(self.print_device(side['device']))
+                    text += self.print_device(side['device'])
 
             if 'conditions' in side:
                 for condition in side['conditions']:
-                    text.append(self.print_card(self.data['condition'][condition]))
+                    text += self.print_card(self.data['condition'][condition])
 
         if 'dial' in card:
-            text.append(self.maneuvers(card['dial']))
+            text += self.maneuvers(card['dial'])
 
         if 'pilots' in card:
-            text.append(self.list_pilots(card))
+            text += self.list_pilots(card)
 
         return text
 
