@@ -166,8 +166,8 @@ class DroidCore():
                 for card in raw_data:
                     self.add_card('condition', card, points_database)
 
-        if not Path(f"{os.pardir}/{points_database}_card_data.json").exists():
-            with open(f"{os.pardir}/{points_database}_card_data.json", 'w') as file:
+        if not Path(f"../{points_database}_card_data.json").exists():
+            with open(f"../{points_database}_card_data.json", 'w') as file:
                 json.dump(self._data, file, indent=4)
 
     def add_card(self, category, card, points_database="AMG", subcat=None):
