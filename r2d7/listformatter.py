@@ -124,6 +124,7 @@ class ListFormatter(DroidCore):
                     url = vendor['link']
         if url:
             url = re.sub("launchbaynext.app/print", "launchbaynext.app/", url)
+            url = url.replace(" ", "%20").replace("'", "%27")
             name = self.link(url, name)
         name = self.bold(name)
         output = [f"{self.iconify(xws['faction'])} {name} "]
