@@ -17,7 +17,7 @@ class Talkback(DroidCore):
     pattern_stitchCrew = re.compile('^!(stitch ?crew)', re.I)
     pattern_egg = re.compile('^!((egg)|(sooga))', re.I)
 
-    _data_url = 'https://github.com/guidokessels/xwing-data2'
+    _data_url = 'https://github.com/SogeMoge/xwing-data2-legacy'
     _r2d7_url = 'https://github.com/FreakyDug/r2-d7'
 
     def __init__(self):

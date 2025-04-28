@@ -44,13 +44,9 @@ class ListFormatter(DroidCore):
         # The leading and trailing < and > are for Slack
         self.register_handler(r'<?(https?://[^>]+)>?', self.handle_url)
 
-    _regexes = (
-        re.compile(r'(https?://(yasb)\.app/(?:[^?/]*/)?\?(.*))'),
-        re.compile(
-            r'(https://(launchbaynext)\.app/[a-z]*\?lbx=([^&]+)(?:&mode=[a-z]+)?)'),
-        re.compile(  # legacy LBN app links
-            r'(https://(launch-bay-next)\.herokuapp\.com/[a-z]*\?lbx=([^&]+)(?:&mode=[a-z]+)?)'),
-    )
+    _regexes = [
+        re.compile(r'(https?://(xwing-legacy)\.com/(?:[^?/]*/)?\?(.*))')
+    ]
 
     def get_xws(self, message):
         match = None
@@ -63,10 +59,8 @@ class ListFormatter(DroidCore):
             return None
 
         xws_url = None
-        if match[2] == 'yasb':
+        if match[2] == 'xwing-legacy':
             xws_url = f"https://pattern-analyzer.app/api/yasb/xws?{match[3]}"
-        if match[2] == 'launchbaynext':
-            xws_url = f"https://launchbaynext.app/api/xws?lbx={match[3]}"
 
         if xws_url:
             xws_url = unescape(xws_url)
