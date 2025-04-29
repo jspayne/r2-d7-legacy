@@ -70,10 +70,12 @@ class DroidCore():
 
     _data = None
     _xwa_data = None
-    GITHUB_USER = 'SogeMoge'
+    #GITHUB_USER = 'SogeMoge'
+    GITHUB_USER = 'jspayne'
     GITHUB_BRANCH = 'master'
-    BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/xwing-data2-legacy/{GITHUB_BRANCH}/"
-    XWA_POINTS_URL = f"https://raw.githubusercontent.com/gregkash16/xwing-data2-legacy/{GITHUB_BRANCH}/"  # alternative points db
+    # BASE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/xwing-data2-legacy/{GITHUB_BRANCH}/"
+    BASE_URL = 'http://localhost:8000/xwing-data2-legacy/'
+    # XWA_POINTS_URL = f"https://raw.githubusercontent.com/gregkash16/xwing-data2-legacy/{GITHUB_BRANCH}/"  # alternative points db
     MANIFEST = 'data/manifest.json'
     # VERSION_RE = re.compile(r'xwing-data/releases/tag/([\d\.]+)')
     check_frequency = 900  # 15 minutes

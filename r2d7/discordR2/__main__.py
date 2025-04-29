@@ -58,8 +58,6 @@ class DiscordClient(commands.Bot):
     def __init__(self, droid):
         super(DiscordClient, self).__init__(intents=intents)
         self.droid = droid
-        self.emoji_map = {f":{emoji.name}:": str(emoji) for emoji in self.emojis}
-
         self._here = os.path.dirname(os.path.abspath(__file__))
         print(self._here)
         # load the cogsDirectory

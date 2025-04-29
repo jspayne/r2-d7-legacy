@@ -165,7 +165,7 @@ class ListFormatter(DroidCore):
             )
             if upgrades:
                 ship_line += f": {', '.join(upgrades)}"
-            ship_line += f' {self.bold(f"[{pilot_points}]")}[{loadout_used}/{loadout_total}]'
+            ship_line += f' {self.bold(f"[{pilot_points}]")}'
 
             output.append(ship_line)
             squad_points += pilot_points
