@@ -301,7 +301,7 @@ def main():
                 im = im.crop(ImageOps.invert(im.convert('RGB')).getbbox())
 
                 # im = ImageOps.invert(im)
-                im.thumbnail(size, Image.ANTIALIAS)
+                im.thumbnail(size, Image.LANCZOS)
 
                 background = Image.new('RGBA', size, (255, 255, 255, 0))
 

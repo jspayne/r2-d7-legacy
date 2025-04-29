@@ -60,11 +60,11 @@ def main():
 
             if number.endswith('`'):
                 draw.text((0, 0), number[:-1], font=font, fill=colour)
-                width = draw.textsize(number[:-1], font=font)[0]
+                width = draw.textlength(number[:-1], font=font)
                 draw.text((width-5, 10), '`', font=arrowFont, fill=colour)
             elif number.endswith('^'):
                 draw.text((0, 0), number[:-1], font=font, fill=colour)
-                width = draw.textsize(number[:-1], font=font)[0]
+                width = draw.textlength(number[:-1], font=font)
                 draw.text((width-5, 10), '`', font=arrowFont, fill=colour)
                 draw.text((width-5, 52), '`', font=arrowFont, fill=colour)
             elif number.endswith(','):
@@ -83,7 +83,7 @@ def main():
             im = im.crop(ImageOps.invert(im.convert('RGB')).getbbox())
 
             # im = ImageOps.invert(im)
-            im.thumbnail(size, Image.ANTIALIAS)
+            im.thumbnail(size, Image.LANCZOS)
 
             background = Image.new('RGBA', size, (255, 255, 255, 0))
             background.paste(
