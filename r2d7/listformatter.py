@@ -133,7 +133,7 @@ class ListFormatter(DroidCore):
 
         for pilot in xws['pilots']:
             try:
-                pilot_name = pilot['id']
+                pilot_name = pilot['id'].replace('[', 'l').replace(']', 'r')
             except KeyError:
                 pilot_name = pilot['name']
             try:
