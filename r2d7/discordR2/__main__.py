@@ -83,8 +83,8 @@ class DiscordClient(commands.Bot):
         if self.droid.needs_update():
             self.droid.load_data()
 
-        if self.droid.needs_update(points_database="XWA"):
-            self.droid.load_data("XWA")
+        # if self.droid.needs_update(points_database="XWA"):
+        #    self.droid.load_data("XWA")
 
         responses = None
 
@@ -112,12 +112,9 @@ class DiscordClient(commands.Bot):
                     f"**{i+1})** {response[0]}"
                     for i, response in enumerate(responses)
                 ]
-                multipleChoiceEmbed = discord.Embed(title="Multiple Cards found.")
+                multipleChoiceEmbed = discord.Embed(title="Multiple Cards found:", description="\n".join(choices))
                 multipleChoiceEmbed.set_footer(
                     text="Type your selection below, or 'x' to cancel."
-                ).add_field(
-                    name="Cards matching query:",
-                    value='\n'.join(choices)
                 )
                 multipleChoiceEmbedMessage = await message.channel.send(embed=multipleChoiceEmbed)
                 try:
