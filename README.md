@@ -1,15 +1,13 @@
-# R2-D7
-A bot for xwingtmg.slack.com.
+# R2-D7 Legacy
+An adaptation of the bot for xwingtmg.slack.com (and Discord) for X-Wing Legacy 2.0 rules
 
 Supports Slack and Discord!
 
-<a href="https://slack.com/oauth/authorize?client_id=22172116449.94722582676&scope=bot"><img alt="Add to Slack" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" /></a>
-
-<a href="https://discord.com/api/oauth2/authorize?client_id=569554290331353088&permissions=274878295104&scope=bot%20applications.commands">Add to Discord</a>
+(Bot is still in testing, so the installation links have been removed)
 
 # Features
 ## Detects links to lists 
--  <https://yasb.app/> and <https://launchbaynext.app/> and prints the lists in chat
+-  <https://xwing-legacy.com/> and prints the lists in chat
 - Just paste the list URL into chat, and let the bot handle it! (on Windows, you can press F6 then CTRL+C, and paste into chat)
 ## Card lookup via [[]] queries
   - [[:t65xwing:luke]] will trigger a response with Luke Skywalker's pilot details
@@ -28,7 +26,7 @@ To add the icons:
 
 Written in Python. (Requires version 3.6 or later)
 
-Uses card data from <a href="https://github.com/guidokessels/xwing-data2">guidokessels/xwing-data2</a>.
+Uses card data from [SogeMoge/xwing-data2-legacy](https://github.com/SogeMoge/xwing-data2-legacy).
 
 # Required Permissions
 ## Slack
