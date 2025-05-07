@@ -56,7 +56,7 @@ class ConfirmDeleteView(discord.ui.View):
 
 class DiscordClient(commands.Bot):
     def __init__(self, droid):
-        super(DiscordClient, self).__init__(intents=intents)
+        super(DiscordClient, self).__init__(intents=intents, cache_app_emojis=True)
         self.droid = droid
         self._here = os.path.dirname(os.path.abspath(__file__))
         print(self._here)

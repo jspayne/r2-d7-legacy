@@ -60,8 +60,7 @@ class ListFormatter(DroidCore):
 
         xws_url = None
         if match[2] == 'xwing-legacy':
-            xws_url = f"https://pattern-analyzer.app/api/yasb/xws?{match[3]}"
-
+            xws_url = f'https://rollbetter-linux.azurewebsites.net/lists/xwing-legacy?{match[0]}'
         if xws_url:
             xws_url = unescape(xws_url)
             logging.info(f"Requesting {xws_url}")
@@ -152,7 +151,7 @@ class ListFormatter(DroidCore):
                     upgrades.append(self.bold('Unrecognised Upgrade'))
                     continue
 
-                upgrade_text = self.wiki_link(upgrade['name'])
+                upgrade_text = f'{self.wiki_link(upgrade["name"])}({self.get_upgrade_cost(pilot_card, upgrade)})'
                 upgrades.append(upgrade_text)
                 loadout_used += self.get_upgrade_cost(pilot_card, upgrade)
                 legality.update(upgrade.get('standard', False), upgrade.get('extended', False),
@@ -161,14 +160,15 @@ class ListFormatter(DroidCore):
             ship_line = (
                     self.iconify(pilot_card['ship']['name']) +
                     self.iconify(f"initiative{initiative}") +
-                    f" {self.italics(self.wiki_link(pilot_card['name']))}"
+                    f" {self.italics(self.wiki_link(pilot_card['name']))}" +
+                    f'({pilot_card["cost"]})'
             )
             if upgrades:
                 ship_line += f": {', '.join(upgrades)}"
-            ship_line += f' {self.bold(f"[{pilot_points}]")}'
+            ship_line += f' {self.bold(f"[{pilot_points + loadout_used}]")}'
 
             output.append(ship_line)
-            squad_points += pilot_points
+            squad_points += pilot_points + loadout_used
 
         output[0] += self.bold(f"[{squad_points}]")
         if legality.legality != Legality.banned:

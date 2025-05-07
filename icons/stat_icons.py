@@ -32,7 +32,7 @@ stat_ranges = {
     'charge': (
         [str(num) for num in range(0, 9)] +
         [f"{num}`" for num in range(0, 9)] +
-        ['1,'],  # Vult Skerris
+        ['1,', '3,'],  # Vult Skerris, Interceptor Booster
         '#E5B922'
     ),
     'forcecharge': (

@@ -10035,6 +10035,31 @@
             "managed": false,
             "animated": false,
             "available": true
+        },
+        {
+            "id": "1367963999676665856",
+            "name": "all",
+            "user": {
+                "id": "185453838038204416",
+                "username": "cerevant",
+                "avatar": null,
+                "discriminator": "0",
+                "public_flags": 0,
+                "flags": 0,
+                "banner": null,
+                "accent_color": null,
+                "global_name": "Jeff",
+                "avatar_decoration_data": null,
+                "collectibles": null,
+                "banner_color": null,
+                "clan": null,
+                "primary_guild": null
+            },
+            "roles": [],
+            "require_colons": true,
+            "managed": false,
+            "animated": false,
+            "available": true
         }
     ]
 }
