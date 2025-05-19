@@ -62,6 +62,7 @@ class XwingDB(object):
         self.upgrades = {upgrade['name']: Upgrade(upgrade, self) for upgrade in upgrades}
         conditions = self._get_json(manifest['conditions'])
         self.conditions = {condition['name']: Condition(condition, self) for condition in conditions}
+        self.conditions_xws_index = {condition.xws: condition for condition in self.conditions.values()}
         pass
 
     def _get_json(self, json_paths):
@@ -120,9 +121,11 @@ class CardData(DiscordFormatter):
         self.__dict__.update(card_data)
         self.db = db
         try:
-            text = card_data.get('text', card_data['ability'])
-            self.token_text = self._icon_format_string(text)
-            self.token_text = self.token_text.replace('Setup:', f'{self.bold("Setup:")}')
+            if self.text:
+                self.token_text = self._icon_format_string(self.text)
+            if self.ability:
+                self.token_ability = self._icon_format_string(self.ability)
+                self.token_ability = self.token_ability.replace('Setup:', f'{self.bold("Setup:")}')
         except KeyError:
             pass  # This is a card that has the text on both sides
 
@@ -136,6 +139,8 @@ class CardData(DiscordFormatter):
                 return None
 
     def _icon_format_string(self, text):
+        if text is None:
+            return None
         # Put icon/emoji placeholders in the text
         out = text
         for m in self.RE_MANEUVER.findall(text):
@@ -191,6 +196,8 @@ class CardData(DiscordFormatter):
         return out
 
     def print_charge(self, charge, force=False, plus=False):
+        if charge is None:
+            return None
         charge['type'] = 'forcecharge' if force else 'charge'
         charge['plus'] = plus
         return self.print_stat(charge)
@@ -238,6 +245,8 @@ class CardData(DiscordFormatter):
         return None
 
     def print_ship_ability(self, ability):
+        if ability := self.shipAbility is None:
+            return None
         lines = ability['text']
         return [self.italics(self.bold(ability['name'] + ':')) + ' ' + lines[0]] + lines[1:]
 
@@ -258,7 +267,7 @@ class CardData(DiscordFormatter):
                             for size in self.cost['values'].keys()]
                 else:
                     logger.warning(f"Unrecognised cost variable: {self.cost['variable']}")
-                    icons = ['?' for stat in self.cost['values']]
+                    icons = ['?'] * len(self.cost['values'])
                 out += ''.join(
                     f"{icon}{cost}" for icon, cost in zip(icons, self.cost['values'].values()))
             else:
@@ -267,23 +276,25 @@ class CardData(DiscordFormatter):
             out = self.cost
         return f"[{out}]"
 
-    def print_keywords(self, keywords):
+    def print_keywords(self):
+        if (keywords := self.keywords) is None:
+            return None
         return f"{', '.join(keywords)}"
 
-    def print_grants(self, grants):
-        out = []
+    def print_grants(self, side):
+        if (grants := side.grants) is None:
+            return None
+        out = ''
         for grant in grants:
             if grant['type'] == 'slot':
                 continue
             elif grant['type'] == 'action':
-                out += [self.print_action(grant['value'])] * grant.get('amount', 1)
+                out += self.print_action(grant['value']) * grant.get('amount', 1)
             elif grant['type'] == 'stat':
                 stat = 'shield' if grant['value'] == 'shields' else grant['value']
                 symbol = 'minus' if grant['amount'] < 0 else 'plus'
-                out.append(
-                    self.iconify(f"{self.stat_colours[stat]}{stat}") +
-                    self.iconify(f"{stat}{symbol}{grant['amount']}")
-                )
+                out += self.iconify(f"{self.STAT_COLORS[stat]}{stat}")
+                out += self.iconify(f"{stat}{symbol}{abs(grant['amount'])}")
         return out if out else None
 
     def print_mode(self):
@@ -296,7 +307,9 @@ class CardData(DiscordFormatter):
             out += "[Epic]"
         return out
 
-    def print_attack(self, atk):
+    def print_attack(self, side):
+        if (atk := side.attack) is None:
+            return None
         if atk['minrange'] != atk['maxrange']:
             ranges = f"{atk['minrange']}-{atk['maxrange']}"
         else:
@@ -308,6 +321,9 @@ class CardData(DiscordFormatter):
                 if atk.get('ordnance', False) else '') +
             ranges
         )
+
+    def print_device(self, device):
+        return f"{self.bold(device['name'])} ({device['type']})" + device['effect']
 
     def wiki_link(self, card_name, crew_of_pilot=False, wiki_name=False):
         if not wiki_name:
@@ -356,10 +372,6 @@ class Side(CardData):
     def __init__(self, side_data, db):
         super().__init__(side_data, db)
         self.formatted_name = self._format_name(side_data.get('name', side_data.get('title', None)))
-        if self.ability:
-            self.token_text = self._icon_format_string(self.ability)
-        else:
-            self.token_text = self._icon_format_string(self.text)
         return
 
 class Upgrade(Card):
@@ -369,14 +381,40 @@ class Upgrade(Card):
 
     def __str__(self):
         out = ''
-        for side in self.sides:
+        for side in self.sides or [self]:
             out += f'{self._icon_format_string(f"[{side.type}]")}' # upgrade icon
             if side.limited:
                 out += f' {"•" * side.limited}'
             out += f' {side.formatted_name} {self.print_cost()} {self.print_mode()}\n'
-            out += self.print_restrictions(self.restrictions) + '\n'
-            out += f'{self._bold_card_names(side.token_text)}\n'
-            out += f'{self.italics(self.text)}'
+            if self.restrictions:
+                out += self.print_restrictions(self.restrictions) + '\n'
+            if side.token_ability:
+                out += f'{self._bold_card_names(side.token_ability)}\n'
+            if side.text:
+                out += f'{self.italics(self.text)}\n'
+
+            out += self.print_ship_ability(side) or ''  # some Config cards have replacement Ship Abilities
+            out += self.print_ship_ability(self) or ''
+
+            last_line = [self.print_attack(side),
+                         self.print_charge(side.charge),
+                         self.print_charge(side.force, force=True, plus=True),
+                         self.print_grants(side)]
+            last_line = list(filter(None, last_line))
+            if last_line:
+                out += ' | '.join(last_line)
+
+            if side.device:
+                if side.device['type'] == 'Remote':
+                    side.device['category'] = 'Remote'
+                    side.device['ability'] = side.device.get('effect', None)
+                    out += str(Upgrade(side.device, self.db))
+                else:
+                    out += self.print_device(side.device)
+
+                for condition in side.conditions or []:
+                    out += str(self.db.conditions_xws_index[condition])
+
         out = out.format_map(self.emoji_map)
         return out
 
@@ -388,8 +426,9 @@ class Pilot(Card):
         return
 
 
-class Ship(object):
+class Ship(CardData):
     def __init__(self, card_data, db):
+        super().__init__(card_data, db)
         self.faction = None
         pilots = copy.deepcopy(card_data['pilots'])
         del card_data['pilots']
@@ -425,7 +464,7 @@ class Condition(Card):
 
     def __str__(self):
         out = f'{{condition}} • {self.bold(self.name)}\n'
-        out += f'{self._bold_card_names(self.token_text)}\n'
+        out += f'{self._bold_card_names(self.token_ability)}\n'
         out = out.format_map(self.emoji_map)
         return out
 
@@ -433,12 +472,18 @@ class Condition(Card):
         # This card type doesn't have a wiki link
         return self.bold(card_name)
 
-if __name__ == '__main__':
+
+def main():
     db = XwingDB('http://localhost:8000/xwing-data2-legacy/data/manifest.json')
     # for name in db.damage_deck.keys():
     #     print(str(db.damage_deck[name]) + '\n')
     # for name in db.conditions.keys():
     #     print(str(db.conditions[name]) + '\n')
-    for name in db.upgrades.keys():
-        print(str(db.upgrades[name]) + '\n')
+    # for name in db.upgrades.keys():
+    #     print(str(db.upgrades[name]) + '\n')
     pass
+
+
+if __name__ == '__main__':
+    main()
+

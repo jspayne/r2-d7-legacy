@@ -13,6 +13,8 @@ class DiscordEmoji(object):
         'ordnance': '[ordnance]',
         'hyperdrive': '[hyperdrive]',
         'hugebase': '[hugebase]',
+        'magentaenergy': '[magentaenergy]',
+        'remote': '[remote]'
     }
     def __init__(self, json_path):
         self.emoji_map = self.LOOKUP_NO_ART.copy()
