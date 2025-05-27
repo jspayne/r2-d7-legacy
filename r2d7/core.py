@@ -61,7 +61,7 @@ class DroidCore():
         return [text]
 
     @classmethod
-    def wiki_link(cls, card_name, crew_of_pilot=False, wiki_name=False):
+    def wiki_link(cls, card_name, crew_of_pilot=False, wiki_name=False, tip_text=None):
         raise NotImplementedError()
 
     @staticmethod
@@ -91,7 +91,7 @@ class DroidCore():
         user = cls.GITHUB_USER if points_database == "AMG" else "gregkash16"
 
         res = requests.get(
-            f"https://api.github.com/repos/{user}/xwing-data2/branches/{cls.GITHUB_BRANCH}")
+            f"https://api.github.com/repos/{user}/xwing-data2-legacy/branches/{cls.GITHUB_BRANCH}")
         if res.status_code != 200:
             logger.warning(f"Got {res.status_code} checking data version.")
             return False

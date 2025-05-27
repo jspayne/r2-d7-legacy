@@ -153,7 +153,7 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
         return [line.strip() for line in lines if line != '']
 
     @classmethod
-    def wiki_link(cls, card_name, crew_of_pilot=False, wiki_name=False):
+    def wiki_link(cls, card_name, crew_of_pilot=False, wiki_name=False, tip_text=None):
         if not wiki_name:
             wiki_name = card_name
         fudged_name = re.sub(r' ', '_', wiki_name)
@@ -180,7 +180,7 @@ You can also search for cards by points value in a particular slot. Eg. `[[:crew
         fudged_name = fudged_name.replace('“', '').replace('”', '')
         fudged_name = quote(fudged_name)
         url = f"https://xwingtmgwiki.com/{fudged_name}"
-        return cls.link(url, card_name)
+        return cls.link(url, card_name, tip_text)
 
     @staticmethod
     def link(url, name):

@@ -126,7 +126,7 @@ class ListFormatter(DroidCore):
 
         for pilot in xws['pilots']:
             try:
-                pilot_name = pilot['id'].replace('[', 'l').replace(']', 'r')
+                pilot_name = pilot['id']
             except KeyError:
                 pilot_name = pilot['name']
             try:
@@ -150,18 +150,33 @@ class ListFormatter(DroidCore):
                 if upgrade is None:
                     upgrades.append(self.bold('Unrecognised Upgrade'))
                     continue
+                upgrade_tip = ''
+                for side in upgrade['sides']:
+                    ability = side.get('ability', '')
+                    if isinstance(ability, list):
+                        ability = ability[0]
+                    upgrade_tip += f"{side['title']}: {ability}\n"
+                    for grant in side.get('grants', []):
+                        if grant['type'] == 'action':
+                            upgrade_tip += f'{grant["value"].get("difficulty", "")} {grant["value"].get("type", "")}\n'
+                        elif grant['type'] == 'stat':
+                            stat = 'shield' if grant['value'] == 'shields' else grant['value']
+                            upgrade_tip += f'{stat} {grant["amount"]}'
+                    upgrade_tip += '\n'
 
-                upgrade_text = f'{self.wiki_link(upgrade["name"])}({self.get_upgrade_cost(pilot_card, upgrade)})'
+                upgrade_text = f'{self.wiki_link(upgrade["name"], tip_text=upgrade_tip)} ({self.get_upgrade_cost(pilot_card, upgrade)})'
                 upgrades.append(upgrade_text)
                 loadout_used += self.get_upgrade_cost(pilot_card, upgrade)
                 legality.update(upgrade.get('standard', False), upgrade.get('extended', False),
                                 epic=upgrade.get('epic', False))
-
+            ship_tip = pilot_card.get('ability', None)
+            if isinstance(ship_tip, list):
+                ship_tip = ship_tip[0]
             ship_line = (
                     self.iconify(pilot_card['ship']['name']) +
                     self.iconify(f"initiative{initiative}") +
-                    f" {self.italics(self.wiki_link(pilot_card['name']))}" +
-                    f'({pilot_card["cost"]})'
+                    f" {self.italics(self.wiki_link(pilot_card['name'], tip_text=ship_tip))}" +
+                    f' ({pilot_card["cost"]})'
             )
             if upgrades:
                 ship_line += f": {', '.join(upgrades)}"
