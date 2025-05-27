@@ -20,8 +20,11 @@ class DiscordDroid(SlackDroid):
         return f"*{text}*"
 
     @staticmethod
-    def link(url, name):
-        return f"[{name}]({url})"
+    def link(url, name, tooltip=None):
+        if tooltip:
+            return f'[{name}]({url} "{tooltip}")'
+        else:
+            return f"[{name}]({url})"
 
     def iconify(self, name, special_chars=False):
         name = name.lower()
