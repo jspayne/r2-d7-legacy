@@ -55,10 +55,10 @@ class AttackDie(Die):
     _faces = ['hit', 'hit', 'hit', 'crit', 'blank', 'blank', 'focus', 'focus']
     _focussed = 'hit'
     _emoji = {
-            'hit': ':atkhit:',
-            'crit': ':atkcrit:',
-            'focus': ':atkfocus:',
-            'blank': ':atkblank:',
+            'hit': '<:atkhit:1366863443369398323>',
+            'crit': '<:atkcrit:1366863589553606726>',
+            'focus': '<:atkfocus:1366863289035915314>',
+            'blank': '<:atkblank:1366863372703895653>',
             None: ' ? '
             }
     _positive_faces = ['hit', 'crit']
@@ -68,9 +68,9 @@ class DefenseDie(Die):
     _faces = ['evade', 'evade', 'evade', 'blank', 'blank', 'blank', 'focus', 'focus']
     _focussed = 'evade'
     _emoji = {
-            'focus': ':deffocus:',
-            'evade': ':defevade:',
-            'blank': ':defblank:',
+            'focus': '<:deffocus:1366863636789854238>',
+            'evade': '<:defevade:1366863525263179829>',
+            'blank': '<:defblank:1366863541599997964>',
             None: ' ? '
             }
     _positive_faces = ['evade']
