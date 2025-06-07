@@ -1,5 +1,5 @@
 import os
-from r2d7.emoji import DiscordEmoji
+from r2d7.DiscordR3.discord_emoji import DiscordEmoji
 
 
 DISCORD_EMOJI_JSON = os.path.join(os.path.dirname(__file__), '..', '..', 'icons', 'discord_emoji_id.json')

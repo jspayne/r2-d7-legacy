@@ -1,7 +1,7 @@
 from r2d7.slackdroid import SlackDroid
 import re
 import os
-from r2d7.emoji import DiscordEmoji
+from r2d7.DiscordR3.discord_emoji import DiscordEmoji
 class DiscordDroid(SlackDroid):
     """
     Discord is similar enough to Slack that we subclass that and then modify.
