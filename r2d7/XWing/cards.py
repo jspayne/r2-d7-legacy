@@ -218,8 +218,8 @@ class CardData(DiscordFormatter):
             out += self.name
         else:
             out += self.formatted_name
-        if self.text:
-            out += f': {self.italics(self.text)}'
+        if self.caption:
+            out += f': {self.italics(self.caption)}'
         out += f' {self.print_cost()} {self.print_mode()}\n'
         return out
 
@@ -298,12 +298,6 @@ class CardData(DiscordFormatter):
         if ands:
             return self.italics('Restrictions: ' + ', '.join(ands))
         return None
-
-    def print_ship_ability(self, side):
-        if (ability := side.shipAbility) is None:
-            return ''
-        lines = ability['text']
-        return self.italics(self.bold(ability['name'] + ':')) + ' ' + ability['text'] + '\n'
 
     def print_cost(self):
         try:
@@ -439,6 +433,8 @@ class CardData(DiscordFormatter):
         out = ''
         out += self.__dict__.get('name', '') + ' '
         out += self.__dict__.get('ability', '') + ' '
+        if self.shipAbility:
+            out += f'{self.shipAbility["name"]} {self.shipAbility["text"]}'
         out += ' '.join(self.__dict__.get('keywords', []))
         out += ' '.join(self.__dict__.get('nicknames', []))
         return out
@@ -462,6 +458,9 @@ class Side(CardData):
 class Upgrade(Card):
     def __init__(self, card_data, db):
         super().__init__(card_data, db)
+        if self.shipAbility:
+            self.token_ship_ability = (f'{self.bold(self.shipAbility["name"])}: '
+                                       f'{self._icon_format_string(self.shipAbility["text"])}\n')
         return
 
     def __str__(self):
@@ -473,8 +472,7 @@ class Upgrade(Card):
             out += f'{side.formatted_name} {self.print_cost()} {self.print_mode()}\n'
             out += self.print_keywords()
             out += self.print_body(side)
-            out += self.print_ship_ability(side) or ''  # some Config cards have replacement Ship Abilities
-            out += self.print_ship_ability(self) or ''
+            out += side.token_ship_ability or ''  # some Config cards have replacement Ship Abilities
             out += self.print_last(side)
 
             if side.device:
@@ -504,6 +502,7 @@ class Upgrade(Card):
         out = ''
         out += self.__dict__.get('name', '') + ' '
         out += ' '.join(self.__dict__.get('nicknames', []))
+        out += self.__dict__.get('caption', '') + ' '
         for side in self.sides:
             out += side.__dict__.get('title', '') + ' '
             out += side.__dict__.get('ability', '') + ' '
@@ -516,12 +515,18 @@ class Pilot(Card):
             raise NotImplementedError('Pilot cards should only have one side.')
         super().__init__(card_data, db)
         self.ship = ship
+        # Oddly, the ship specific ability is defined per pilot - some
+        # ships (e.g. Sep Vulture) have different ship abilities depending
+        # on the pilot
+        if self.shipAbility:
+            self.token_ship_ability = (f'{self.bold(self.shipAbility["name"])}: '
+                                       f'{self._icon_format_string(self.shipAbility["text"])}\n')
         return
 
     def __str__(self):
         out = self.print_header()
         out += self.print_body(self)
-        out += self.print_ship_ability(self)
+        out += self.token_ship_ability or ''
         out += self.print_keywords()
         out += self.print_last(self)
         for condition in self.conditions or []:
@@ -534,7 +539,6 @@ class Pilot(Card):
         return out
 
 class Ship(CardData):
-    # TODO: preprocess / tokenize ship ability
     # TODO: str method
     def __init__(self, card_data, db):
         super().__init__(card_data, db)
