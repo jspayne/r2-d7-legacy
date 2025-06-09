@@ -46,20 +46,15 @@ class XwingDB(object):
         damage_cards = self._get_json(manifest['damagedecks'])[0]['cards']  # Because stupid
         # Hard code the deck for now - the current data doesn't have the epic damage cards
         self.damage_deck = {dcard['title']: Damage(dcard, self, "core") for dcard in damage_cards}
-        jships = []
-        for faction in manifest['pilots']:
-            jships.extend(self._get_json(faction['ships']))
-        self.ships = {ship['name']: Ship(ship, self) for ship in jships}
-        self.ships_xws_index = {ship.xws: ship for ship in self.ships.values()}
+        # Stick the ships in their factions becaue ship xws are not unique between factions
+        for jfaction in manifest['pilots']:
+            fname = jfaction['faction']
+            jships = self._get_json(jfaction['ships'])
+            self.factions[fname]['ships'] = {ship['xws']: Ship(ship, self) for ship in jships}
         self.pilots_xws_index = {}
-        for ship in self.ships.values():
-            self.pilots_xws_index.update({pilot.xws: pilot for pilot in ship.pilots.values()})
-        # Add ship references to each faction
-        for faction, fdata in self.factions.items():
-            fdata['ships'] = {}
-            for ship, sdata in self.ships.items():
-                if fdata['xws'] == sdata.faction:
-                    self.factions[faction]['ships'][ship] = sdata
+        for faction in self.factions.values():
+            for ship in faction['ships'].values():
+                self.pilots_xws_index.update({pilot.xws: pilot for pilot in ship.pilots.values()})
         upgrades = []
         for upgrade_type in manifest['upgrades']:
             upgrades.extend(self._get_json(upgrade_type))
@@ -67,16 +62,12 @@ class XwingDB(object):
         conditions = self._get_json(manifest['conditions'])
         self.conditions = {condition['name']: Condition(condition, self) for condition in conditions}
         self.conditions_xws_index = {condition.xws: condition for condition in self.conditions.values()}
-        self.cards = {}
-        self.cards.update({p.unique_name: p for p in self.pilots_xws_index.values()})
-        self.cards.update({u.unique_name: u for u in self.upgrades_xws_index.values()})
-        self.cards.update({c.unique_name: c for c in self.conditions_xws_index.values()})
-        self.cards.update({s.unique_name: s for s in self.ships_xws_index.values()})
-        self.search_db = {}
-        self.search_db.update({p.unique_name: p.search_text for p in self.pilots_xws_index.values()})
-        self.search_db.update({u.unique_name: u.search_text for u in self.upgrades_xws_index.values()})
-        self.search_db.update({c.unique_name: c.search_text for c in self.conditions_xws_index.values()})
-        self.search_db.update({s.unique_name: s.search_text for s in self.ships_xws_index.values()})
+        self.cards = []
+        self.cards.extend([u for u in self.upgrades_xws_index.values()])
+        self.cards.extend([p for p in self.pilots_xws_index.values()])
+        self.cards.extend([c for c in self.conditions_xws_index.values()])
+        for faction in self.factions:
+            self.cards.extend([s for s in self.factions[faction]['ships'].values()])
         pass
 
     def _get_json(self, json_paths):
@@ -109,8 +100,8 @@ class XwingDB(object):
     def search_cards(self, search_str):
         results = []
         results_100 = []
-        for card in self.cards.values():
-            ratio = fuzz.partial_token_set_ratio(search_str, card.search_text)
+        for card in self.cards:
+            ratio = fuzz.partial_token_sort_ratio(search_str, card.search_text)
             if ratio >= 68:
                 results.append((card, ratio))
                 if ratio == 100:
@@ -150,7 +141,12 @@ class CardData(DiscordFormatter):
     ICON_SUBSTITUTIONS = {
         "stationary": "stop",
     }
-
+    ARC_ICONS = {
+        'Turret': 'turret',
+        'Auxiliary Rear': 'frontback',
+        'Auxiliary 180': '180',
+        'Bullseye': 'bullseye',
+    }
     def __init__(self, card_data, db):
         super().__init__()
         self.__dict__.update(card_data)
@@ -202,12 +198,29 @@ class CardData(DiscordFormatter):
     @property
     def unique_name(self):
         # Use % for first delimiter so we can quickly extract the xws for lookup later
-        return self.xws + '%' + self.name.lower().replace(' ', '_') + '-' + self.__class__.__name__.lower()
+        ret = self.xws + '%'
+        ret += self.name.lower().replace(' ', '_')
+        return ret
 
     @staticmethod
-    def iconify(icon):
-        # This function is for compatibility with legacy print methods
-        return f"{{{''.join(icon.lower().split())}}}"
+    def iconify(name, special_chars=False):
+        remap = {
+            'bomb': 'xbomb',
+            'shield': 'xshield',
+            'lock': 'targetlock',
+            'rebelalliance': 'rebel',
+            'scumandvillainy': 'scum',
+            'galacticempire': 'imperial',
+            'firstorder': 'first_order',
+        }
+        name = name.lower()
+        if special_chars:
+            name = re.sub(r'[^a-zA-Z0-9\-\_]', '', name)
+        else:
+            name = re.sub(r'[^a-zA-Z0-9]', '', name)
+        name = name.replace('+', 'plus')
+        name = remap.get(name, name)
+        return f'{{{name}}}'
 
     def print_header(self, no_links=False):
         # icon is card specific, add it in the override
@@ -222,6 +235,54 @@ class CardData(DiscordFormatter):
             out += f': {self.italics(self.caption)}'
         out += f' {self.print_cost()} {self.print_mode()}\n'
         return out
+
+
+    def print_ship_stats(self):
+        # generates a single line of stat icons for a pilot or ship card
+        if self.ship:  # This is a pilot card
+            ship = self.ship
+            pilot = self
+        else:
+            ship = self
+            pilot = None
+
+        line = [self.iconify(ship.faction)]
+
+        stats = []
+        if pilot:
+            stats.append(self.iconify(f"initiative{pilot.initiative}"))
+            if pilot.engagement in (0, 1):
+                stats.append(self.iconify(f"engagement{pilot.engagement}"))
+        for stat in ship.stats:
+            stats.append(self.print_stat(stat))
+        if pilot and pilot.charges:
+            stats.append(self.print_charge(pilot.charges))
+        if pilot and pilot.force:
+            stats.append(self.print_charge(pilot.force, force=True))
+        line.append(''.join(stats))
+
+        arcs = [self.ARC_ICONS[arc] for arc in getattr(ship, 'firing_arcs', [])]
+        if arcs:
+            line.append(''.join(
+                self.iconify(f"attack-{arc}", special_chars=True)
+                for arc in arcs))
+
+        if pilot and 'shipActions' in pilot:
+            line.append('|'.join(
+                self.print_action(action) for action in pilot['shipActions']
+            ))
+        elif 'actions' in ship:
+            line.append('|'.join(
+                self.print_action(action) for action in ship['actions']
+            ))
+
+        if not pilot and 'slots' in ship:
+            line.append(''.join(self.iconify(slot) for slot in ship['slots']))
+
+        if pilot and 'slots' in pilot:
+            line.append(''.join(self.iconify(slot) for slot in pilot['slots']))
+
+        return '  '.join(line)
 
 
     def print_action(self, action):
@@ -495,7 +556,11 @@ class Upgrade(Card):
     @property
     def unique_name(self):
         # Use % for first delimiter so we can quickly extract the xws for lookup later
-        return self.xws + '%' + self.name.lower().replace(' ', '_') + '-' + self.sides[0].type.lower()
+        ret = super().unique_name + '-'
+        ret += self.sides[0].type + '-'
+        ret += '-'.join(self.sides[0].slots).lower()
+        ret += '-upgrade'
+        return ret
 
     @property
     def search_text(self):
@@ -534,6 +599,13 @@ class Pilot(Card):
         out = out.format_map(self.emoji_map)
         return out
 
+    @property
+    def unique_name(self):
+        ret = super().unique_name + '-'
+        ret += self.ship.faction + '-' # e.g. tielnfighter clashes between Imperial & Rebel
+        ret += 'pilot'
+        return ret
+
     def print_header(self, no_links=False):
         out = f'{self.iconify(self.ship.xws)} ' + super().print_header(no_links=no_links)
         return out
@@ -549,6 +621,14 @@ class Ship(CardData):
         self.pilots = {pilot['name']: Pilot(pilot, db, self) for pilot in pilots}
         return
 
+    @property
+    def unique_name(self):
+        ret = super().unique_name
+        ret += self.faction + '-'  # e.g. tielnfighter clashes between Imperial & Rebel
+        # dial codes clash between factions, so adding them doesn't help
+        ret += 'ship'
+        return ret
+
 class Damage(Card):
     def __init__(self, card_data, db, deck):
         if card_data.get('sides', None):
@@ -563,6 +643,12 @@ class Damage(Card):
         out = out.replace('Action:', f'\n{self.bold("Action:")}')
         out = out.format_map(self.emoji_map)
         return out
+
+    @property
+    def unique_name(self):
+        ret = self.title.lower().replace(' ', '_') + '-'
+        ret += 'damage'
+        return ret
 
     def _format_name(self, card_name):
         # This card type doesn't have a wiki link
@@ -585,6 +671,13 @@ class Condition(Card):
         # This card type doesn't have a wiki link
         return self.bold(card_name)
 
+    @property
+    def unique_name(self):
+        ret = self.xws + '%'  # XWS for condition is just slugged title
+        ret += 'condition'
+        return ret
+
+
 class SearchString(object):
     def __init__(self, search_string):
         self.search_text = search_string
@@ -592,13 +685,8 @@ class SearchString(object):
 def main():
     logger.setLevel(logging.DEBUG)
     db = XwingDB()
-    # for name in db.damage_deck.keys():
-    #     print(str(db.damage_deck[name]) + '\n')
-    # for name in db.conditions.keys():
-    #     print(str(db.conditions[name]) + '\n')
-    for xws in db.upgrades_xws_index.keys():
-        print(str(db.upgrades_xws_index[xws]) + '\n')
     foo = db.search_cards('sabine')
+    print(f'Found {len(foo)} cards')
     pass
 
 

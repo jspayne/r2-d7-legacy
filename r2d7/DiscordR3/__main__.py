@@ -26,7 +26,8 @@ def main():
         return
 
     logging.info(f"Discord token: {discord_token}")
-
+    # This bot doesn't do voice, suppress warning about NaCl library
+    discord.VoiceClient.warn_nacl = False
     intents = discord.Intents.default()
     intents.message_content = True
     bot = discord.Bot(intents=intents)

@@ -1,3 +1,5 @@
+import logging
+
 import discord
 from ..discord_formatter import DiscordFormatter
 from discord.ext import commands
@@ -5,6 +7,8 @@ from ...XWing.roller import ModdedRoll, VsRoll
 from ...XWing.dice import DieType
 import random
 import re
+
+logger = logging.getLogger(__name__)
 
 class DiceRollerCog(commands.Cog):
     re_vs = re.compile('\\b(?P<vs>(vs)|(versus)|(v))\\b', re.I)
@@ -15,6 +19,10 @@ class DiceRollerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.formatter = DiscordFormatter()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        logger.info('Dice roller cog ready')
 
     @discord.slash_command(description="Roll dice")
     @discord.option("query", type=discord.SlashCommandOptionType.string)

@@ -1,7 +1,11 @@
 import contextlib
+import logging
+
 import discord
 from discord.ext import commands
 from ...XWing.cards import XwingDB
+
+logger = logging.getLogger(__name__)
 
 class CardLookupCog(commands.Cog):
     def __init__(self, bot):
@@ -9,14 +13,21 @@ class CardLookupCog(commands.Cog):
         self.embeds = []
         self.db = XwingDB()
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        logger.info('Card lookup cog ready')
+
     @commands.slash_command(description="Look up a card")
     @discord.option("query", type=discord.SlashCommandOptionType.string)
     async def card(self, ctx, query):
+        logger.debug(f'Card query: {query}')
         results = self.db.search_cards(query)
-        if len(results) > 1:
-            await ctx.respond(view=SelectCard(results), ephemeral=True)
+        if len(results) == 0:
+            await ctx.respond(content=f'No cards found for "{query}"', ephemeral=True, delete_after=20)
+        if len(results) == 1:
+            await ctx.respond(embed=discord.Embed(description=str(results[0])))
         else:
-            await ctx.respond(content=f'No cards found for "{query}"', ephemeral=True)
+            await ctx.respond(view=SelectCard(results), ephemeral=True, delete_after=20)
 
 
 def setup(bot: commands.Bot):
@@ -49,4 +60,4 @@ class SelectCard(discord.ui.View):
         card_embeds = []
         for name in interaction.data['values']:
             card_embeds.append(discord.Embed(description=str(self.all_results[name])))
-        await interaction.response.edit_message(embeds=card_embeds, view=None)
+        await interaction.respond(embeds=card_embeds)
