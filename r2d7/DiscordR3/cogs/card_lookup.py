@@ -1,14 +1,17 @@
-import contextlib
 import logging
+import re
+import random
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from ...XWing.cards import XwingDB
 
 logger = logging.getLogger(__name__)
 
 class CardLookupCog(commands.Cog):
-    def __init__(self, bot):
+    RE_IMAGE = re.compile(r'\{\{(.*?)}}')
+    RE_CARD = re.compile(r'\[\[(.*?)]]')
+    def __init__(self, bot: discord.Client):
         self.bot = bot
         self.embeds = []
         self.db = XwingDB()
@@ -17,18 +20,38 @@ class CardLookupCog(commands.Cog):
     async def on_ready(self):
         logger.info('Card lookup cog ready')
 
-    @commands.slash_command(description="Look up a card")
+    @commands.slash_command(description="Look up any X-Wing card")
     @discord.option("query", type=discord.SlashCommandOptionType.string)
-    async def card(self, ctx, query):
+    async def card(self, ctx: discord.ApplicationContext, query):
+        await self.do_card_lookup(query, ctx.respond)
+
+    @commands.slash_command(description="Draw a random Critical Hit")
+    async def crit(self, ctx):
+        logger.debug(f'Drawing a random Critical Hit')
+        card = random.choice(list(self.db.damage_deck.values()))
+        await ctx.respond(embeds=get_card_embeds(card))
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.author.bot:  # Don't respond to myself or other bots.
+            return
+        # Card Lookup
+        queries = self.RE_CARD.findall(message.content)
+        if len(queries) > 10:
+            message.reply(content="Please use less than 10 search terms in your message")
+        for q in queries:
+            await self.do_card_lookup(q, message.reply)
+
+    async def do_card_lookup(self, query, reply_callback):
+        self.db.update_data()  # this is rate limted by the db
         logger.debug(f'Card query: {query}')
         results = self.db.search_cards(query)
-        if len(results) == 0:
-            await ctx.respond(content=f'No cards found for "{query}"', ephemeral=True, delete_after=20)
         if len(results) == 1:
-            await ctx.respond(embed=discord.Embed(description=str(results[0])))
+            await reply_callback(embeds=get_card_embeds(results[0]))
+        elif len(results) > 1:
+            await reply_callback(view=SelectCard(results))
         else:
-            await ctx.respond(view=SelectCard(results), ephemeral=True, delete_after=20)
-
+            await reply_callback(content=f'No results found for query: {query}')
 
 def setup(bot: commands.Bot):
     bot.add_cog(CardLookupCog(bot))
@@ -40,24 +63,38 @@ class SelectCard(discord.ui.View):
         self.all_results = {card.unique_name: card for card in results_from_lookup}
         options = []
         for name, card in self.all_results.items():
-            emoji = None
-            label = card.print_header(no_links=True).strip()
-            if label[0] == '{':  # starts with an emoji
-                emoji = label.split('}')[0] + '}'
-                emoji = emoji.format_map(card.emoji_map)
-                label = label.split('} ')[1]
-            options.append(discord.SelectOption(label=label, value=name, emoji=emoji))
+            select = card.select_line()
+            select['value'] = name
+            options.append(discord.SelectOption(**select))
         super().__init__()
+        # Not using the select decorator because the choice list is dynamic
         dropdown = discord.ui.Select(
             placeholder=f"Select up to {min(5, len(self.all_results))}",
             min_values=1, max_values=min(5, len(self.all_results)),
-            options=options
+            options=options,
+            row=0
         )
         dropdown.callback = self.card_select_callback
         self.add_item(dropdown)
 
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=1)
+    async def cancel_callback(self, button, interaction: discord.Interaction):
+        await interaction.response.edit_message(content="Cancelling...", view=None, delete_after=1)
+
     async def card_select_callback(self, interaction: discord.Interaction):
         card_embeds = []
         for name in interaction.data['values']:
-            card_embeds.append(discord.Embed(description=str(self.all_results[name])))
-        await interaction.respond(embeds=card_embeds)
+            card_embeds.extend(get_card_embeds(self.all_results[name]))
+        await interaction.response.edit_message(embeds=card_embeds, view=None)
+
+def get_card_embeds(card):
+    embeds = []
+    if card.sides and len(card.sides) > 1:
+        embed = discord.Embed(description=card.print_header(), thumbnail=card.sides[0].image)
+        for side in card.sides:
+            embed.add_field(name=side.bold(side.title), value=card.print_side(side), inline=False)
+        embeds.append(embed)
+    else:
+        embeds.append(discord.Embed(description=str(card), thumbnail=(card.image or card.sides[0].image)))
+    return embeds
+

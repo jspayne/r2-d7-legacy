@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import time
 import urllib.parse as url_parse
 from urllib.parse import quote
 
@@ -18,10 +19,12 @@ JSON_MANIFEST = 'http://localhost:8000/xwing-data2-legacy/data/manifest.json'
 
 # noinspection SpellCheckingInspection
 class XwingDB(object):
+    UPDATE_RATE = 600  # seconds
     def __init__(self, json_manifest=JSON_MANIFEST):
         # Set up json access based on the manifest
-        # this will support an http remote access or local filesystem
+        # this will support a http remote access or local filesystem
         # depending on what kind of path is passed to __init__
+        self.last_update = time.time()
         self.json_manifest = json_manifest
         url = url_parse.urlparse(json_manifest)
         if url.scheme in ('http', 'https'):
@@ -34,43 +37,41 @@ class XwingDB(object):
             self._base_url = None
             self._base_path = os.path.abspath(os.path.join(os.path.dirname(json_manifest), '..'))
         # Load up the reference dicts - not sure if we'll need these
-        manifest = self._get_json(json_manifest)[0]
+        manifest = self.get_json(json_manifest)[0]
         self.version = manifest['version']
-        factions = self._get_json(manifest['factions'])
+        factions = self.get_json(manifest['factions'])
         self.factions = {faction['xws']: faction for faction in factions}
-        stats = self._get_json(manifest['stats'])
+        stats = self.get_json(manifest['stats'])
         self.stats = {stat['name']: stat for stat in stats}
-        actions = self._get_json(manifest['actions'])
+        actions = self.get_json(manifest['actions'])
         self.actions = {action['name']: action for action in actions}
         # Load up cards
-        damage_cards = self._get_json(manifest['damagedecks'])[0]['cards']  # Because stupid
+        damage_cards = self.get_json(manifest['damagedecks'])[0]['cards']  # Because stupid
         # Hard code the deck for now - the current data doesn't have the epic damage cards
         self.damage_deck = {dcard['title']: Damage(dcard, self, "core") for dcard in damage_cards}
         # Stick the ships in their factions becaue ship xws are not unique between factions
-        for jfaction in manifest['pilots']:
-            fname = jfaction['faction']
-            jships = self._get_json(jfaction['ships'])
-            self.factions[fname]['ships'] = {ship['xws']: Ship(ship, self) for ship in jships}
+        self.ships = ShipDb(manifest['pilots'], self)
         self.pilots_xws_index = {}
-        for faction in self.factions.values():
-            for ship in faction['ships'].values():
+        for faction in self.ships.factions.values():
+            for ship in faction.values():
                 self.pilots_xws_index.update({pilot.xws: pilot for pilot in ship.pilots.values()})
         upgrades = []
         for upgrade_type in manifest['upgrades']:
-            upgrades.extend(self._get_json(upgrade_type))
+            upgrades.extend(self.get_json(upgrade_type))
         self.upgrades_xws_index = {upgrade['xws']: Upgrade(upgrade, self) for upgrade in upgrades}
-        conditions = self._get_json(manifest['conditions'])
+        conditions = self.get_json(manifest['conditions'])
         self.conditions = {condition['name']: Condition(condition, self) for condition in conditions}
         self.conditions_xws_index = {condition.xws: condition for condition in self.conditions.values()}
         self.cards = []
         self.cards.extend([u for u in self.upgrades_xws_index.values()])
         self.cards.extend([p for p in self.pilots_xws_index.values()])
         self.cards.extend([c for c in self.conditions_xws_index.values()])
-        for faction in self.factions:
-            self.cards.extend([s for s in self.factions[faction]['ships'].values()])
+        self.cards.extend([d for d in self.damage_deck.values()])
+        for ships in self.ships.factions.values():
+            self.cards.extend([s for s in ships.values()])
         pass
 
-    def _get_json(self, json_paths):
+    def get_json(self, json_paths):
         ret = []
         if isinstance(json_paths, str):
             json_paths = [json_paths]
@@ -93,24 +94,41 @@ class XwingDB(object):
         return ret
 
     def update_data(self):
-        new_version = self._get_json(self.json_manifest)[0]['version']
-        if new_version != self.version:
-            self.__init__()
+        if (time.time() - self.last_update) > self.UPDATE_RATE:
+            logger.debug('Checking for updated data')
+            new_version = self.get_json(self.json_manifest)[0]['version']
+            if new_version != self.version:
+                logger.debug(f'Old version: {self.version}, new version: {new_version}.  Updating...')
+                self.__init__()
 
-    def search_cards(self, search_str):
+    def search_cards(self, search_str, test=False):
+        name_results = []
+        name_results_100 = []
         results = []
         results_100 = []
+        search_str = search_str.lower().strip()
         for card in self.cards:
-            ratio = fuzz.partial_token_sort_ratio(search_str, card.search_text)
+            ratio = fuzz.partial_token_sort_ratio(search_str, card.search_name)
             if ratio >= 68:
                 results.append((card, ratio))
                 if ratio == 100:
                     results_100.append((card, ratio))
-        if len(results_100):
+            if search_str in card.search_name:  # exact match
+                name_results_100.append((card, 100))
+            else:
+                ratio = fuzz.partial_token_sort_ratio(search_str, card.name)
+                if ratio >= 68:
+                    name_results.append((card, ratio))
+        if len(name_results_100):
+            results = name_results_100
+        elif len(name_results):
+            results = name_results
+        elif len(results_100):
             results = results_100
         results.sort(key=lambda x: x[1], reverse=True)
         results = results[:10]
-        results = [result[0] for result in results]
+        if not test:
+            results = [result[0] for result in results]
         return results
 
 # This class can be re-declared with a generic formatter
@@ -151,14 +169,12 @@ class CardData(DiscordFormatter):
         super().__init__()
         self.__dict__.update(card_data)
         self.db = db
-        try:
-            if self.text:
-                self.token_text = self._icon_format_string(self.text)
-            if self.ability:
-                self.token_ability = self._icon_format_string(self.ability)
-                self.token_ability = self.token_ability.replace('Setup:', f'{self.bold("Setup:")}')
-        except KeyError:
-            pass  # This is a card that has the text on both sides
+        if self.text:
+            self.token_text = self._icon_format_string(self.text)
+        if self.ability:
+            self.token_ability = self._icon_format_string(self.ability)
+            for key in ['Setup:', 'Action:']:
+                self.token_ability = self.token_ability.replace(key, '\n' + f'{self.bold(key)}')
 
     def __getattribute__(self, item):
         try:
@@ -204,23 +220,14 @@ class CardData(DiscordFormatter):
 
     @staticmethod
     def iconify(name, special_chars=False):
-        remap = {
-            'bomb': 'xbomb',
-            'shield': 'xshield',
-            'lock': 'targetlock',
-            'rebelalliance': 'rebel',
-            'scumandvillainy': 'scum',
-            'galacticempire': 'imperial',
-            'firstorder': 'first_order',
-        }
         name = name.lower()
         if special_chars:
-            name = re.sub(r'[^a-zA-Z0-9\-\_]', '', name)
+            name = re.sub(r'[^a-zA-Z0-9\-_]', '', name)
         else:
             name = re.sub(r'[^a-zA-Z0-9]', '', name)
         name = name.replace('+', 'plus')
-        name = remap.get(name, name)
-        return f'{{{name}}}'
+        out = f'{{{name}}}'
+        return out
 
     def print_header(self, no_links=False):
         # icon is card specific, add it in the override
@@ -234,8 +241,12 @@ class CardData(DiscordFormatter):
         if self.caption:
             out += f': {self.italics(self.caption)}'
         out += f' {self.print_cost()} {self.print_mode()}\n'
+        out += self.print_restrictions() + '\n'
         return out
 
+    def select_line(self):
+            out = {'label': f'{("•" * self.limited)} {self.name or self.title}'}
+            return out
 
     def print_ship_stats(self):
         # generates a single line of stat icons for a pilot or ship card
@@ -246,9 +257,8 @@ class CardData(DiscordFormatter):
             ship = self
             pilot = None
 
-        line = [self.iconify(ship.faction)]
-
-        stats = []
+        line = []
+        stats = [self.iconify(ship.faction)]
         if pilot:
             stats.append(self.iconify(f"initiative{pilot.initiative}"))
             if pilot.engagement in (0, 1):
@@ -261,28 +271,22 @@ class CardData(DiscordFormatter):
             stats.append(self.print_charge(pilot.force, force=True))
         line.append(''.join(stats))
 
-        arcs = [self.ARC_ICONS[arc] for arc in getattr(ship, 'firing_arcs', [])]
-        if arcs:
-            line.append(''.join(
-                self.iconify(f"attack-{arc}", special_chars=True)
-                for arc in arcs))
-
-        if pilot and 'shipActions' in pilot:
+        if pilot and pilot.shipActions:
             line.append('|'.join(
-                self.print_action(action) for action in pilot['shipActions']
+                self.print_action(action) for action in pilot.shipActions
             ))
-        elif 'actions' in ship:
+        elif ship.actions:
             line.append('|'.join(
-                self.print_action(action) for action in ship['actions']
+                self.print_action(action) for action in ship.actions
             ))
 
-        if not pilot and 'slots' in ship:
-            line.append(''.join(self.iconify(slot) for slot in ship['slots']))
+        if not pilot and ship.slots:
+            line.append(''.join(self.iconify(slot) for slot in ship.slots))
 
-        if pilot and 'slots' in pilot:
-            line.append(''.join(self.iconify(slot) for slot in pilot['slots']))
+        if pilot and pilot.slots:
+            line.append(''.join(self.iconify(slot) for slot in pilot.slots))
 
-        return '  '.join(line)
+        return '\n'.join(line) + '\n'
 
 
     def print_action(self, action):
@@ -318,44 +322,50 @@ class CardData(DiscordFormatter):
         charge['plus'] = plus
         return self.print_stat(charge)
 
-    def print_restrictions(self, restrictions):
-        if not restrictions:
+    def print_restrictions(self):
+        if not self.restrictions:
             return ''
         ands = []
-        for restrict in restrictions:
-            ors = []
-            if 'action' in restrict:
-                ors.append(self.print_action(restrict['action']))
-            if 'factions' in restrict:
-                ors += [self.RESTRICTION_FACTION_MAP[faction]
-                        for faction in restrict['factions']]
-            if 'ships' in restrict:
-                ors += [self.db.ships_xws_index[ship].name
-                        for ship in restrict['ships']]
-            if 'sizes' in restrict:
-                ors.append(' or '.join(restrict['sizes']) + ' ship')
-            if 'names' in restrict:
-                ors.append(
-                    f"squad including {' or '.join(restrict['names'])}")
-            if 'arcs' in restrict:
-                ors += [self.iconify(arc) for arc in restrict['arcs']]
-            if restrict.get('solitary', False):
-                ors.append('Solitary')
-            if restrict.get('non-limited', False):
-                ors.append('Non-Limited')
-            if 'equipped' in restrict:
-                ors.append(
-                    f"Equipped {''.join(self.iconify(slot) for slot in restrict['equipped'])}")
-            if 'force_side' in restrict:
-                ors += [f"{side.capitalize()} side" for side in restrict['force_side']]
-            if 'standardized' in restrict:
-                ors.append('standardized')
-            if 'shipAbility' in restrict:
-                ors += [f"{ability.title()}" for ability in restrict['shipAbility']]
-            if 'keywords' in restrict:
-                ors.extend(restrict['keywords'])
-            if ors:
-                ands.append(' or '.join(ors))
+        ors = []
+
+        if 'action' in self.restrictions:
+            ors.append(self.print_action(self.restrictions['action']))
+        if 'factions' in self.restrictions:
+            ors += [self.RESTRICTION_FACTION_MAP[faction]
+                    for faction in self.restrictions['factions']]
+        if 'ships' in self.restrictions:
+            for ship_xws in self.restrictions['ships']:
+                ship = self.db.ships[ship_xws]
+                if isinstance(ship, list):
+                    ors.append(ship[0].name)  # Ships that have clashing XWS have the same name
+                else:
+                    ors.append(ship.name)
+        if 'sizes' in self.restrictions:
+            ors.append(' or '.join(self.restrictions['sizes']) + ' ship')
+        if 'names' in self.restrictions:
+            ors.append(
+                f"squad including {' or '.join(self.restrictions['names'])}")
+        if 'arcs' in self.restrictions:
+            ors += [self.iconify(arc) for arc in self.restrictions['arcs']]
+        if self.restrictions.get('solitary', False):
+            ors.append('Solitary')
+        if self.restrictions.get('non-limited', False):
+            ors.append('Non-Limited')
+        if 'equipped' in self.restrictions:
+            ors.append(
+                f"Equipped {''.join(self.iconify(slot) for slot in self.restrictions['equipped'])}")
+        if 'force_side' in self.restrictions:
+            ors += [f"{side.capitalize()} side" for side in self.restrictions['force_side']]
+        if 'standardized' in self.restrictions:
+            ors.append('standardized')
+        if 'shipAbility' in self.restrictions:
+            ors += [f"{ability.title()}" for ability in self.restrictions['shipAbility']]
+        if 'keywords' in self.restrictions:
+            ors.extend(self.restrictions['keywords'])
+
+        if ors:
+            ands.append(' or '.join(ors))
+
         if ands:
             return self.italics('Restrictions: ' + ', '.join(ands))
         return None
@@ -429,19 +439,17 @@ class CardData(DiscordFormatter):
             self.iconify(f"attack{atk['value']}") +
             (self.iconify('redrangebonusindicator')
                 if atk.get('ordnance', False) else '') +
-            ranges
+            ranges + '\n'
         )
 
     def print_device(self, device):
         return f"{self.bold(device['name'])} ({device['type']})" + device['effect']
 
-    def print_body(self, side):
+    def print_body(self):
         out =  ''
-        if self.restrictions:
-            out += self.print_restrictions(self.restrictions) + '\n'
-        if side.token_ability:
-            out += f'{self._bold_card_names(side.token_ability)}\n'
-        if side.text:
+        if self.token_ability:
+            out += f'{self._bold_card_names(self.token_ability)}\n'
+        if self.text:
             out += f'{self.italics(self.text)}\n'
         return out
 
@@ -500,14 +508,21 @@ class CardData(DiscordFormatter):
         out += ' '.join(self.__dict__.get('nicknames', []))
         return out
 
+    @property
+    def search_name(self):
+        out = ''
+        out += self.__dict__.get('name', '') + ' '
+        for side in self.__dict__.get('sides', []):
+            if side.title:
+                out += side.title + ' '
+        out += ' '.join(self.__dict__.get('nicknames', []))
+        return out.lower().strip()
+
 class Card(CardData):
     # A card is made of one or more sides
     def __init__(self, card_data, db):
         super().__init__(card_data, db)
-        if sides := card_data.pop('sides', None):
-            self.sides = [Side(side, db) for side in sides]
-        else:
-            self.formatted_name = self._format_name(card_data.get('name', card_data.get('title', None))) # Sometimes the name and text are on the side
+        self.formatted_name = self._format_name(card_data.get('name', card_data.get('title', None))) # Sometimes the name and text are on the side
         return
 
 class Side(CardData):
@@ -518,40 +533,70 @@ class Side(CardData):
 
 class Upgrade(Card):
     def __init__(self, card_data, db):
+        restrictions = card_data.get('restrictions', [])
+        if len(restrictions):
+            del card_data['restrictions']
         super().__init__(card_data, db)
+        self.sides = [Side(side, db) for side in card_data['sides']]
         if self.shipAbility:
             self.token_ship_ability = (f'{self.bold(self.shipAbility["name"])}: '
                                        f'{self._icon_format_string(self.shipAbility["text"])}\n')
+        self.restrictions = {}
+        for restriction in restrictions:
+            for key, value in restriction.items():
+                self.restrictions[key] = value
         return
 
     def __str__(self):
-        out = ''
-        for side in self.sides or [self]:
-            out += f'{self._icon_format_string(f"[{side.type}]")}' # upgrade icon
-            if side.limited:
-                out += f' {"•" * side.limited} '
-            out += f'{side.formatted_name} {self.print_cost()} {self.print_mode()}\n'
-            out += self.print_keywords()
-            out += self.print_body(side)
-            out += side.token_ship_ability or ''  # some Config cards have replacement Ship Abilities
-            out += self.print_last(side)
-
-            if side.device:
-                if side.device['type'] == 'Remote':
-                    side.device['category'] = 'Remote'
-                    side.device['ability'] = side.device.get('effect', None)
-                    out += str(Upgrade(side.device, self.db))
-                else:
-                    out += self.print_device(side.device)
-
-                for condition in side.conditions or []:
-                    out += str(self.db.conditions_xws_index[condition])
-
+        out = self.print_header()
+        for side in self.sides:
+            if len(self.sides) > 1:
+                out += f'{self.bold(side.title)}\n'
+            out += self.print_side(side) + '\n'
         out = out.format_map(self.emoji_map)
         return out
 
+    def print_cost(self):
+        if self.standardLoadoutOnly:
+            return '[SL]'
+        else:
+            return super().print_cost()
+
     def print_header(self, no_links=False):
-        return f'{self._icon_format_string(f"[{self.sides[0].type}]")} ' + super().print_header(no_links=no_links)
+        out = f'{self._icon_format_string(f"[{self.sides[0].type}]")} ' + super().print_header(no_links=no_links)
+        return out.format_map(self.emoji_map)
+
+    def select_line(self):
+        out = super().select_line()
+        out['emoji'] = self.iconify(self.sides[0].type).format_map(self.emoji_map)
+        if self.standardLoadoutOnly:
+            out['label'] += ' (Standard Loadout)'
+        if len(self.restrictions.get('factions', [])):
+            flist = [ self.db.factions[fkey]['name'] for fkey in self.restrictions["factions"] ]
+            out['label'] += f' ({",".join(flist)})'
+        out['label'] += f' {self.print_mode()} {self.print_cost()}'
+        return out
+
+    def print_side(self, side):
+        out = ''
+        out += side.print_keywords()
+        out += side.print_body()
+        out += side.token_ship_ability or ''  # some Config cards have replacement Ship Abilities
+        out += self.print_last(side)
+
+        if self.device:
+            if self.device['type'] == 'Remote':
+                self.device['category'] = 'Remote'
+                self.device['ability'] = self.device.get('effect', None)
+                out += str(Upgrade(self.device, self.db))
+            else:
+                out += self.print_device(self.device)
+
+            for condition in self.conditions or []:
+                out += str(side.db.conditions_xws_index[condition])
+
+        out = out.format_map(self.emoji_map)
+        return out
 
     @property
     def unique_name(self):
@@ -590,9 +635,10 @@ class Pilot(Card):
 
     def __str__(self):
         out = self.print_header()
-        out += self.print_body(self)
+        out += self.print_ship_stats()
+        out += self.print_body()
         out += self.token_ship_ability or ''
-        out += self.print_keywords()
+        out += self.print_keywords() + '\n'
         out += self.print_last(self)
         for condition in self.conditions or []:
             out += str(self.db.conditions_xws_index[condition])
@@ -606,9 +652,16 @@ class Pilot(Card):
         ret += 'pilot'
         return ret
 
+    def select_line(self):
+        out = super().select_line()
+        out['emoji'] = self.iconify(self.ship.xws).format_map(self.emoji_map)
+        out['label'] += f'({self.db.factions[self.ship.faction]["name"]})'
+        out['label'] += f' {self.print_mode()} {self.print_cost()}'
+        return out
+
     def print_header(self, no_links=False):
         out = f'{self.iconify(self.ship.xws)} ' + super().print_header(no_links=no_links)
-        return out
+        return out.format_map(self.emoji_map)
 
 class Ship(CardData):
     # TODO: str method
@@ -634,6 +687,7 @@ class Damage(Card):
         if card_data.get('sides', None):
             raise NotImplementedError('Damage cards should only have one side.')
         super().__init__(card_data, db)
+        self.name = self.title
         self.deck = deck
         return
 
@@ -677,16 +731,45 @@ class Condition(Card):
         ret += 'condition'
         return ret
 
+class ShipDb(object):
+    def __init__(self, pilots_json, db):
+        self.db = db
+        self.factions = {}
+        for jfaction in pilots_json:
+            fname = jfaction['faction']
+            jships = self.db.get_json(jfaction['ships'])
+            self.factions[fname] = {ship['xws']: Ship(ship, db) for ship in jships}
+
+    def __getitem__(self, name):
+        # Search the DB by xws.
+        # Return a list of matching ships for clashing xws (e.g. fangfighter, tielnfighter)
+        ret = []
+        for ships in self.factions.values():
+            if name in ships:
+                ret.append(ships[name])
+        if len(ret) == 1:
+            return ret[0]
+        elif len(ret) > 1:
+            return ret
+        else:
+            raise KeyError(name)
 
 class SearchString(object):
     def __init__(self, search_string):
         self.search_text = search_string
 
+def test_search(db: XwingDB):
+    q = input('Enter query, X to exit:')
+    while q != 'X':
+        found = db.search_cards(q, test=True)
+        for i in found:
+            print(f'{i[1]:5}: {i[0].name}')
+        q = input('Enter query, X to exit:')
+
 def main():
     logger.setLevel(logging.DEBUG)
     db = XwingDB()
-    foo = db.search_cards('sabine')
-    print(f'Found {len(foo)} cards')
+    test_search(db)
     pass
 
 

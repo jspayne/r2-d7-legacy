@@ -2,7 +2,8 @@ import os
 from r2d7.DiscordR3.discord_emoji import DiscordEmoji
 
 
-DISCORD_EMOJI_JSON = os.path.join(os.path.dirname(__file__), '..', '..', 'icons', 'discord_emoji_id.json')
+#DISCORD_EMOJI_JSON = os.path.join(os.path.dirname(__file__), '..', '..', 'icons', 'discord_emoji_id.json')
+DISCORD_EMOJI_JSON = os.path.join(os.path.dirname(__file__), '..', '..', 'icons', 'discord_emoji_id_test.json')
 
 class DiscordFormatter(object):
     def __init__(self):

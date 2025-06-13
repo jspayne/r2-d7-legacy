@@ -10,7 +10,12 @@ class DiscordEmoji(object):
     LOOKUP_CONVERT = {
         'criticalhit': 'crit',
         'force': 'purpleforcecharge',
-        'koiogranturn': 'kturn'
+        'koiogranturn': 'kturn',
+        'lock': 'targetlock',
+        'rebelalliance': 'rebel',
+        'scumandvillainy': 'scum',
+        'galacticempire': 'imperial',
+        'firstorder': 'first_order',
     }
     LOOKUP_NO_ART = {
         'victory': '[victory]',
@@ -19,7 +24,9 @@ class DiscordEmoji(object):
         'hyperdrive': '[hyperdrive]',
         'hugebase': '[hugebase]',
         'magentaenergy': '[magentaenergy]',
-        'remote': '[remote]'
+        'remote': '[remote]',
+        'bomb': '[bomb]',
+        'gauntletfighter': '[gauntletfighter]'
     }
     def __init__(self, json_path):
         self.emoji_map = {}
@@ -31,11 +38,11 @@ class DiscordEmoji(object):
             self.emoji_data[e['name']] = e
             self.emoji_map[e['name']] = self._format_emoji(e['name'], e['id'])
         for data_name, discord_name in self.LOOKUP_CONVERT.items():
-            self.emoji_map[data_name] = self._format_emoji(self.emoji_map[discord_name],
-                                                           self.emoji_data[discord_name]['id'])
+            self.emoji_map[data_name] = self.emoji_map[discord_name]
 
 
     @staticmethod
     def _format_emoji(name, em_id):
-        return f'<:{name}:{em_id}>'
+        out = f'<:{name}:{em_id}>'
+        return out
 
