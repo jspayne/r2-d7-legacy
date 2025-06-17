@@ -5,6 +5,8 @@ import os
 import re
 import time
 import urllib.parse as url_parse
+from collections import defaultdict
+from itertools import groupby
 from urllib.parse import quote
 
 import requests
@@ -228,6 +230,9 @@ class CardData(DiscordFormatter):
         name = name.replace('+', 'plus')
         out = f'{{{name}}}'
         return out
+
+    def get_image(self):
+        return self.image  # Returns None if there is no image at this level
 
     def print_header(self, no_links=False):
         # icon is card specific, add it in the override
@@ -556,6 +561,9 @@ class Upgrade(Card):
         out = out.format_map(self.emoji_map)
         return out
 
+    def get_image(self):
+        return self.sides[0].get_image()
+
     def print_cost(self):
         if self.standardLoadoutOnly:
             return '[SL]'
@@ -659,19 +667,57 @@ class Pilot(Card):
         out['label'] += f' {self.print_mode()} {self.print_cost()}'
         return out
 
+    def pilot_select_line(self):
+        # Used when selecting pilots from a ship
+        out = {'label': f'{self.name} {self.print_cost()}',
+               'emoji': self.iconify(f'initiative{self.initiative}').format_map(self.emoji_map)}
+        if self.limited:
+            out['label'] = f'{("•" * self.limited)} {out["label"]}'
+        return out
+
     def print_header(self, no_links=False):
         out = f'{self.iconify(self.ship.xws)} ' + super().print_header(no_links=no_links)
         return out.format_map(self.emoji_map)
 
+    def pilot_line(self):
+        out = f'{self.iconify("initiative" + str(self.initiative))} {self.formatted_name} {self.print_cost()}'
+        return out.format_map(self.emoji_map)
+
 class Ship(CardData):
-    # TODO: str method
-    def __init__(self, card_data, db):
+    # Dialgen format defined here: http://xwvassal.info/dialgen/dialgen
+    maneuver_key = (
+        ('T', 'turnleft'),
+        ('B', 'bankleft'),
+        ('F', 'straight'),
+        ('N', 'bankright'),
+        ('Y', 'turnright'),
+        ('K', 'kturn'),
+        ('L', 'sloopleft'),
+        ('P', 'sloopright'),
+        ('E', 'trollleft'),
+        ('R', 'trollright'),
+        ('A', 'reversebankleft'),
+        ('S', 'reversestraight'),
+        ('D', 'reversebankright'),
+    )
+    stop_maneuver = ('O', 'stop')
+
+    difficulty_key = {
+        'R': 'red',
+        'W': '',
+        'G': 'green',
+        'B': 'blue',
+        'P': 'purple'
+    }
+
+    def __init__(self, card_data, faction, db):
         super().__init__(card_data, db)
-        self.faction = None
+        self.faction = faction
         pilots = copy.deepcopy(card_data['pilots'])
         del card_data['pilots']
         self.__dict__.update(card_data)
         self.pilots = {pilot['name']: Pilot(pilot, db, self) for pilot in pilots}
+        self.formatted_name = self._format_name(card_data['name'])
         return
 
     @property
@@ -681,6 +727,67 @@ class Ship(CardData):
         # dial codes clash between factions, so adding them doesn't help
         ret += 'ship'
         return ret
+
+    def print_maneuvers(self):
+        used_moves = {move[1] for move in self.dial}
+        dial = {speed: {move[1]: move[2] for move in moves}
+                for speed, moves in groupby(self.dial, lambda move: move[0])}
+        result = []
+        blank = self.iconify('blank')
+        for speed, moves in dial.items():
+            line = [f'`{speed}`' + ' ']
+            for dialgen_move, droid_move in self.maneuver_key:
+                if dialgen_move not in used_moves:
+                    continue
+                if speed == '0' and dialgen_move == 'F':
+                    dialgen_move, droid_move = self.stop_maneuver
+                if dialgen_move in moves:
+                    line.append(self.iconify(
+                        self.difficulty_key[moves[dialgen_move]] + droid_move
+                    ))
+                else:
+                    line.append(blank)
+            result.append(''.join(line))
+        return list(reversed(result))
+
+    def __str__(self):
+        lines = [self.print_header(),
+                 self.print_ship_stats(),
+                 ]
+        lines.extend(self.print_maneuvers())
+        out = '\n'.join(lines)
+        out = out.format_map(self.emoji_map)
+        return out
+
+    def print_header(self, no_links=False):
+        items = [f'{self.iconify(self.xws)}',
+                 self.formatted_name,
+                 self.iconify(f"{self.size.lower()}base")]
+        line = ' '.join(items)
+        return line.format_map(self.emoji_map)
+
+    def select_line(self):
+        # Used when selecting pilots from a direct search
+        out = {'label': self.name,
+               'emoji': self.iconify(self.xws).format_map(self.emoji_map)}
+        out['label'] += f'({self.db.factions[self.faction]["name"]})'
+        if self.standardLoadoutOnly:
+            out['label'] += ' (Standard Loadout)'
+        return out
+
+    def get_grouped_pilots(self):
+        pilots = defaultdict(list)
+        for pilot in self.pilots.values():
+            if pilot.standardLoadout:
+                group = "Standard Loadout"
+            elif '-lsl' in pilot.xws:
+                group = "Left Side Legal"
+            elif pilot.shipAbility:
+                group = pilot.shipAbility["name"]
+            else:
+                group = 'Standard'
+            pilots[group].append(pilot)
+        return pilots
 
 class Damage(Card):
     def __init__(self, card_data, db, deck):
@@ -738,7 +845,7 @@ class ShipDb(object):
         for jfaction in pilots_json:
             fname = jfaction['faction']
             jships = self.db.get_json(jfaction['ships'])
-            self.factions[fname] = {ship['xws']: Ship(ship, db) for ship in jships}
+            self.factions[fname] = {ship['xws']: Ship(ship, fname, db) for ship in jships}
 
     def __getitem__(self, name):
         # Search the DB by xws.

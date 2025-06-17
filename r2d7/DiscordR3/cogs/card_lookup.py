@@ -4,7 +4,7 @@ import random
 
 import discord
 from discord.ext import commands, tasks
-from ...XWing.cards import XwingDB
+from ...XWing.cards import XwingDB, Ship
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +84,51 @@ class SelectCard(discord.ui.View):
     async def card_select_callback(self, interaction: discord.Interaction):
         card_embeds = []
         for name in interaction.data['values']:
-            card_embeds.extend(get_card_embeds(self.all_results[name]))
-        await interaction.response.edit_message(embeds=card_embeds, view=None)
+            card = self.all_results[name]
+            if isinstance(card, Ship):
+                # await interaction.response.edit_message(content='Deleting...', view=None, delete_after=1)
+                await interaction.response.send_message(embed=discord.Embed(description=str(card)), view=PilotSelect(card))
+            else:
+                card_embeds.extend(get_card_embeds(card))
+                await interaction.response.edit_message(embeds=card_embeds, view=None)
+
+class PilotSelect(discord.ui.View):
+    def __init__(self, ship):
+        self.all_pilots = {pilot.unique_name: pilot for pilot in ship.pilots.values()}
+        self.embeds = []
+        self.timeout = 30
+        super().__init__()
+
+        for group, pilots in ship.get_grouped_pilots().items():
+            options = []
+            for pilot in pilots:
+                select = pilot.pilot_select_line()
+                select['value'] = pilot.unique_name
+                options.append(select)
+            options = [discord.SelectOption(**select) for select in sorted(options, key=lambda item: item['emoji'], reverse=True)]
+            dropdown = discord.ui.Select(
+                placeholder=f"{group}",
+                min_values=1, max_values=min(5, len(options)),
+                options=options
+            )
+            dropdown.callback = self.pilot_select_callback
+            self.add_item(dropdown)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=4)
+    async def cancel_callback(self, button, interaction: discord.Interaction):
+        await interaction.response.edit_message(content="Cancelling...", view=None, delete_after=1)
+
+    async def pilot_select_callback(self, interaction: discord.Interaction):
+        card_embeds = []
+        for name in interaction.data['values']:
+            card = self.all_pilots[name]
+            if isinstance(card, Ship):
+                card_embeds.extend(get_ship_embeds(card))
+            else:
+                card_embeds.extend(get_card_embeds(card))
+        await interaction.response.send_message(embeds=card_embeds)
+
+
 
 def get_card_embeds(card):
     embeds = []
@@ -95,6 +138,10 @@ def get_card_embeds(card):
             embed.add_field(name=side.bold(side.title), value=card.print_side(side), inline=False)
         embeds.append(embed)
     else:
-        embeds.append(discord.Embed(description=str(card), thumbnail=(card.image or card.sides[0].image)))
+        image = card.get_image()
+        if image:
+            embeds.append(discord.Embed(description=str(card), thumbnail=(card.image or card.sides[0].image)))
+        else:
+            embeds.append(discord.Embed(description=str(card)))
     return embeds
 
