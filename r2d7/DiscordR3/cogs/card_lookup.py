@@ -3,8 +3,9 @@ import re
 import random
 
 import discord
-from discord.ext import commands, tasks
-from ...XWing.cards import XwingDB, Ship
+from discord.ext import commands
+from . import card_db
+from ...XWing.cards import Ship
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ class CardLookupCog(commands.Cog):
     def __init__(self, bot: discord.Client):
         self.bot = bot
         self.embeds = []
-        self.db = XwingDB()
+        self.db = card_db
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -43,11 +44,15 @@ class CardLookupCog(commands.Cog):
             await self.do_card_lookup(q, message.reply)
 
     async def do_card_lookup(self, query, reply_callback):
-        self.db.update_data()  # this is rate limted by the db
+        self.db.update_data()  # this is rate limited by the db
         logger.debug(f'Card query: {query}')
         results = self.db.search_cards(query)
         if len(results) == 1:
-            await reply_callback(embeds=get_card_embeds(results[0]))
+            if isinstance(results[0], Ship):
+                ship_embed = discord.Embed(description=str(results[0]))
+                await reply_callback(embed=ship_embed, view=PilotSelect(results[0]))
+            else:
+                await reply_callback(embeds=get_card_embeds(results[0]))
         elif len(results) > 1:
             await reply_callback(view=SelectCard(results))
         else:
@@ -78,7 +83,7 @@ class SelectCard(discord.ui.View):
         self.add_item(dropdown)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=1)
-    async def cancel_callback(self, button, interaction: discord.Interaction):
+    async def cancel_callback(self, button, interaction: discord.Interaction): # noqa: button is part of the API
         await interaction.response.edit_message(content="Cancelling...", view=None, delete_after=1)
 
     async def card_select_callback(self, interaction: discord.Interaction):
@@ -86,7 +91,6 @@ class SelectCard(discord.ui.View):
         for name in interaction.data['values']:
             card = self.all_results[name]
             if isinstance(card, Ship):
-                # await interaction.response.edit_message(content='Deleting...', view=None, delete_after=1)
                 await interaction.response.send_message(embed=discord.Embed(description=str(card)), view=PilotSelect(card))
             else:
                 card_embeds.extend(get_card_embeds(card))
@@ -105,7 +109,8 @@ class PilotSelect(discord.ui.View):
                 select = pilot.pilot_select_line()
                 select['value'] = pilot.unique_name
                 options.append(select)
-            options = [discord.SelectOption(**select) for select in sorted(options, key=lambda item: item['emoji'], reverse=True)]
+            # options = [discord.SelectOption(**select) for select in sorted(options, key=lambda item: item['emoji'], reverse=True)]
+            options = [discord.SelectOption(**select) for select in options]
             dropdown = discord.ui.Select(
                 placeholder=f"{group}",
                 min_values=1, max_values=min(5, len(options)),
@@ -115,17 +120,14 @@ class PilotSelect(discord.ui.View):
             self.add_item(dropdown)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=4)
-    async def cancel_callback(self, button, interaction: discord.Interaction):
+    async def cancel_callback(self, button, interaction: discord.Interaction): # noqa: button is part of the API
         await interaction.response.edit_message(content="Cancelling...", view=None, delete_after=1)
 
     async def pilot_select_callback(self, interaction: discord.Interaction):
         card_embeds = []
         for name in interaction.data['values']:
             card = self.all_pilots[name]
-            if isinstance(card, Ship):
-                card_embeds.extend(get_ship_embeds(card))
-            else:
-                card_embeds.extend(get_card_embeds(card))
+            card_embeds.extend(get_card_embeds(card))
         await interaction.response.send_message(embeds=card_embeds)
 
 

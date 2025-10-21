@@ -26,7 +26,10 @@ class DiscordEmoji(object):
         'magentaenergy': '[magentaenergy]',
         'remote': '[remote]',
         'bomb': '[bomb]',
-        'gauntletfighter': '[gauntletfighter]'
+        'gauntletfighter': '[gauntletfighter]',
+        'clonez95headhunter': '[clonez95headhunter]',
+        'cr90corelliancorvette': '[cr90corelliancorvette]',
+        'rogueclassstarfighter': '[rogueclassstarfighter]',
     }
     def __init__(self, json_path):
         self.emoji_map = {}

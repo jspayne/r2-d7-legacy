@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 COGS = [ 'dice_roller',
-         'card_lookup']
+         'card_lookup',
+         'list_lookup']
 
 def main():
     debug = os.getenv('DEBUG', False)

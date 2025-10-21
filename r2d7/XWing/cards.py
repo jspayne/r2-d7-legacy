@@ -8,6 +8,7 @@ import urllib.parse as url_parse
 from collections import defaultdict
 from itertools import groupby
 from urllib.parse import quote
+from r2d7.XWing.legality import CardLegality
 
 import requests
 from thefuzz import fuzz
@@ -110,7 +111,7 @@ class XwingDB(object):
         results_100 = []
         search_str = search_str.lower().strip()
         for card in self.cards:
-            ratio = fuzz.partial_token_sort_ratio(search_str, card.search_name)
+            ratio = fuzz.partial_token_sort_ratio(search_str, card.search_text)
             if ratio >= 68:
                 results.append((card, ratio))
                 if ratio == 100:
@@ -123,10 +124,10 @@ class XwingDB(object):
                     name_results.append((card, ratio))
         if len(name_results_100):
             results = name_results_100
-        elif len(name_results):
-            results = name_results
         elif len(results_100):
             results = results_100
+        elif len(name_results):
+            results = name_results
         results.sort(key=lambda x: x[1], reverse=True)
         results = results[:10]
         if not test:
@@ -153,9 +154,9 @@ class CardData(DiscordFormatter):
         "agility": "green",
         "hull": "yellow",
         "shield": "blue",
-        "charge": "orange",
+        "charge": "yellow",
         "forcecharge": "purple",
-        "initiative": "initiative",
+        "initiative": "orange",
         "energy": "magenta"
     }
     ICON_SUBSTITUTIONS = {
@@ -171,6 +172,7 @@ class CardData(DiscordFormatter):
         super().__init__()
         self.__dict__.update(card_data)
         self.db = db
+        self.legality = CardLegality(card_data)
         if self.text:
             self.token_text = self._icon_format_string(self.text)
         if self.ability:
@@ -375,31 +377,11 @@ class CardData(DiscordFormatter):
             return self.italics('Restrictions: ' + ', '.join(ands))
         return None
 
+    def get_cost(self):
+        return self.cost
+
     def print_cost(self):
-        try:
-            if 'variable' in self.cost:
-                out = ''
-                if self.cost['variable'] == 'shields':
-                    self.cost['variable'] = 'shield'
-                if self.cost['variable'] in self.STAT_COLORS.keys():
-                    if self.cost['variable'] != self.STAT_COLORS[self.cost['variable']]:
-                        out += self.iconify(
-                            f"{self.STAT_COLORS[self.cost['variable']]}{self.cost['variable']}")
-                    icons = [self.iconify(f"{self.cost['variable']}{stat}")
-                            for stat in self.cost['values'].keys()]
-                elif self.cost['variable'] == 'size':
-                    icons = [self.iconify(f"{size}base")
-                            for size in self.cost['values'].keys()]
-                else:
-                    logger.warning(f"Unrecognised cost variable: {self.cost['variable']}")
-                    icons = ['?'] * len(self.cost['values'])
-                out += ''.join(
-                    f"{icon}{cost}" for icon, cost in zip(icons, self.cost['values'].values()))
-            else:
-                out = self.cost['value']
-        except TypeError:
-            out = self.cost
-        return f"[{out}]"
+        return f"[{self.get_cost()}]"
 
     def print_keywords(self):
         if (keywords := self.keywords) is None:
@@ -506,10 +488,11 @@ class CardData(DiscordFormatter):
     def search_text(self):
         out = ''
         out += self.__dict__.get('name', '') + ' '
+        out += self.__dict__.get('xws', '') + ' '
         out += self.__dict__.get('ability', '') + ' '
         if self.shipAbility:
-            out += f'{self.shipAbility["name"]} {self.shipAbility["text"]}'
-        out += ' '.join(self.__dict__.get('keywords', []))
+            out += f'{self.shipAbility["name"]} {self.shipAbility["text"]} '
+        out += ' '.join(self.__dict__.get('keywords', [])) + ' '
         out += ' '.join(self.__dict__.get('nicknames', []))
         return out
 
@@ -568,7 +551,30 @@ class Upgrade(Card):
         if self.standardLoadoutOnly:
             return '[SL]'
         else:
-            return super().print_cost()
+            return self.print_cost()
+
+    def get_cost(self, pilot=None):
+        out = 0
+        if 'variable' in self.cost:
+            cost_key = self.cost['variable']
+            # Check if the variable is a pilot attribute (currently only "initiative")
+            cost_index = pilot.__dict__.get(cost_key, None)
+            if cost_index is None:
+                # Now check direct Ship attributes (currently only "size")
+                cost_index = pilot.ship.__dict__.get(cost_key, None)
+            if cost_index is None:
+                # Now check if it is a ship stat (currently only "agility")
+                for stat in pilot.ship.stats:
+                    if stat['type'] == cost_key:
+                        cost_index = stat['value']
+                        break
+            if cost_index is None:
+                logger.error(f'Unknown cost variable: {cost_key}')
+                return 0
+            out = self.cost['values'][str(cost_index)]
+        else:
+            out = self.cost['value']
+        return out
 
     def print_header(self, no_links=False):
         out = f'{self._icon_format_string(f"[{self.sides[0].type}]")} ' + super().print_header(no_links=no_links)
@@ -582,7 +588,12 @@ class Upgrade(Card):
         if len(self.restrictions.get('factions', [])):
             flist = [ self.db.factions[fkey]['name'] for fkey in self.restrictions["factions"] ]
             out['label'] += f' ({",".join(flist)})'
-        out['label'] += f' {self.print_mode()} {self.print_cost()}'
+        out['label'] += f' {self.print_mode()} '
+        cost = self.print_cost()
+        if '{' in cost:
+            out['label'] += f'[Variable]'
+        else:
+            out['label'] += f'{cost}'
         return out
 
     def print_side(self, side):
@@ -669,10 +680,13 @@ class Pilot(Card):
 
     def pilot_select_line(self):
         # Used when selecting pilots from a ship
-        out = {'label': f'{self.name} {self.print_cost()}',
+        out = {'label': f'{self.name} ',
                'emoji': self.iconify(f'initiative{self.initiative}').format_map(self.emoji_map)}
         if self.limited:
             out['label'] = f'{("•" * self.limited)} {out["label"]}'
+        if self.caption:
+            out['label'] += f': {self.caption}'
+        out['label'] += f' {self.print_cost()}'
         return out
 
     def print_header(self, no_links=False):
@@ -680,7 +694,7 @@ class Pilot(Card):
         return out.format_map(self.emoji_map)
 
     def pilot_line(self):
-        out = f'{self.iconify("initiative" + str(self.initiative))} {self.formatted_name} {self.print_cost()}'
+        out = f'{self.iconify(self.ship.xws)}{self.iconify("initiative" + str(self.initiative))} {self.formatted_name} {self.print_cost()}'
         return out.format_map(self.emoji_map)
 
 class Ship(CardData):
@@ -716,7 +730,7 @@ class Ship(CardData):
         pilots = copy.deepcopy(card_data['pilots'])
         del card_data['pilots']
         self.__dict__.update(card_data)
-        self.pilots = {pilot['name']: Pilot(pilot, db, self) for pilot in pilots}
+        self.pilots = {pilot['xws']: Pilot(pilot, db, self) for pilot in pilots}
         self.formatted_name = self._format_name(card_data['name'])
         return
 
@@ -777,17 +791,29 @@ class Ship(CardData):
 
     def get_grouped_pilots(self):
         pilots = defaultdict(list)
+        # Add common options to fix order
+        pilots['Standard'] = []
+        pilots['Left-Side Legal'] = []
+        pilots['Standard Loadout'] = []
         for pilot in self.pilots.values():
             if pilot.standardLoadout:
                 group = "Standard Loadout"
             elif '-lsl' in pilot.xws:
-                group = "Left Side Legal"
+                group = "Left-Side Legal"
             elif pilot.shipAbility:
                 group = pilot.shipAbility["name"]
+                if group not in pilots.keys():
+                    # Hack to insert ability at the front of the dict
+                    pilots = {**{group: []}, **pilots}
             else:
                 group = 'Standard'
             pilots[group].append(pilot)
-        return pilots
+        # Filter and sort the results
+        out_pilots = {}
+        for group, plist in pilots.items():
+            if len(plist) > 0:
+                out_pilots[group] = sorted(plist, key=lambda p: ((p.initiative * 100) + p.cost), reverse=True)
+        return out_pilots
 
 class Damage(Card):
     def __init__(self, card_data, db, deck):

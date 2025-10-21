@@ -1,4 +1,6 @@
 import os
+import re
+from urllib.parse import quote
 from r2d7.DiscordR3.discord_emoji import DiscordEmoji
 
 
@@ -30,3 +32,4 @@ class DiscordFormatter(object):
             return f'[{name}]({url} "{tooltip}")'
         else:
             return f"[{name}]({url})"
+
