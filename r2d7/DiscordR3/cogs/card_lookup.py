@@ -94,7 +94,7 @@ class SelectCard(discord.ui.View):
                 await interaction.response.send_message(embed=discord.Embed(description=str(card)), view=PilotSelect(card))
             else:
                 card_embeds.extend(get_card_embeds(card))
-                await interaction.response.edit_message(embeds=card_embeds, view=None)
+        await interaction.response.edit_message(embeds=card_embeds, view=None)
 
 class PilotSelect(discord.ui.View):
     def __init__(self, ship):

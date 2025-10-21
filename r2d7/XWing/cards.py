@@ -548,13 +548,12 @@ class Upgrade(Card):
         return self.sides[0].get_image()
 
     def print_cost(self):
-        if self.standardLoadoutOnly:
+        if self.__dict__.get('standardLoadoutOnly', False):
             return '[SL]'
         else:
-            return self.print_cost()
+            return super().print_cost()
 
     def get_cost(self, pilot=None):
-        out = 0
         if 'variable' in self.cost:
             cost_key = self.cost['variable']
             # Check if the variable is a pilot attribute (currently only "initiative")

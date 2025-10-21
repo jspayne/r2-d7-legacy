@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 from enum import Enum
 from html import unescape
@@ -32,13 +33,35 @@ class ListLookupCog(commands.Cog):
     async def on_message(self, message):
         if message.author.bot:  # Don't respond to myself or other bots.
             return
-        await self.do_list_lookup(message, message.reply)
+        # Card Lookup
+        queries = []
+        for list_re in self.RE_LIST_URLS:
+            queries += list_re.findall(message.content)
+        if len(queries) > 10:
+            message.reply(content="Please use less than 10 search terms in your message")
+        for q in queries:
+            await self.do_list_lookup(q[0], message.reply, message)
 
-    async def do_list_lookup(self, url, reply_callback):
+    async def do_list_lookup(self, url, reply_callback, message=None):
         xws = self.get_xws(url)
         if xws:
             embeds = self.get_list_embeds(xws)
-            await reply_callback(content=embeds[0], embeds=embeds[1:])
+            title = embeds[0]
+            embeds = embeds[1:]
+            if message:
+                trailer =f"-# {message.author.display_name} requested this data.\n"
+                title = trailer + title
+
+            if len(embeds) <= 10:
+                await reply_callback(content=title, embeds=embeds, view=ConfirmDeleteView(message))
+            else:
+                total = math.ceil(len(embeds)/5)
+                count = 1
+                while len(embeds) > 0:
+                    await reply_callback(content=f'{title} (part {count}/{total})', embeds=embeds[:5],
+                                         view=ConfirmDeleteView(message))
+                    embeds = embeds[5:]
+                    count += 1
         else:
             logger.error('Invalid URL - no XWS found')
 
@@ -73,8 +96,22 @@ class ListLookupCog(commands.Cog):
         output = formatter.print_list()
         embeds = [output[0]]
         for line in output[1:]:
-            embeds.append(discord.Embed(description=line))
+            embeds.append(discord.Embed(description=line, color=formatter.get_faction_color(xws['faction'])))
         return embeds
+
+class ConfirmDeleteView(discord.ui.View):
+    def __init__(self, user_message):
+        super().__init__()
+        self.user_message = user_message
+
+    @discord.ui.button(label='Delete URL', style=discord.ButtonStyle.green)
+    async def confirm(self, button, interaction: discord.Interaction):
+        await self.user_message.delete()
+        await interaction.message.edit(view=None)
+
+    @discord.ui.button(label='Do Nothing', style=discord.ButtonStyle.red)
+    async def cancel(self, button, interaction: discord.Interaction):
+        await interaction.message.edit(view=None)
 
 def setup(bot): # this is called by Pycord to set up the cog
     bot.add_cog(ListLookupCog(bot)) # add the cog to the bot
