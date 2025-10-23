@@ -18,6 +18,7 @@ class Die(object):
     die_type = None
 
     def __init__(self):
+        self.result = None
         self.roll() # to place a die on the table, you have to roll it
 
     def roll(self):
@@ -49,16 +50,16 @@ class Die(object):
         return True
 
     def __str__(self):
-        return f'/{self._emoji[self.result]}\\'
+        return f'{self._emoji[self.result]}'
 
 class AttackDie(Die):
     _faces = ['hit', 'hit', 'hit', 'crit', 'blank', 'blank', 'focus', 'focus']
     _focussed = 'hit'
     _emoji = {
-            'hit': '<:atkhit:1366863443369398323>',
-            'crit': '<:atkcrit:1366863589553606726>',
-            'focus': '<:atkfocus:1366863289035915314>',
-            'blank': '<:atkblank:1366863372703895653>',
+            'hit': '{atkhit}',
+            'crit': '{atkcrit}',
+            'focus': '{atkfocus}',
+            'blank': '{atkblank}',
             None: ' ? '
             }
     _positive_faces = ['hit', 'crit']
@@ -68,9 +69,9 @@ class DefenseDie(Die):
     _faces = ['evade', 'evade', 'evade', 'blank', 'blank', 'blank', 'focus', 'focus']
     _focussed = 'evade'
     _emoji = {
-            'focus': '<:deffocus:1366863636789854238>',
-            'evade': '<:defevade:1366863525263179829>',
-            'blank': '<:defblank:1366863541599997964>',
+            'focus': '{deffocus}',
+            'evade': '{defevade}',
+            'blank': '{defblank}',
             None: ' ? '
             }
     _positive_faces = ['evade']
