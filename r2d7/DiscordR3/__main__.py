@@ -11,7 +11,8 @@ load_dotenv()
 
 COGS = [ 'dice_roller',
          'card_lookup',
-         'list_lookup']
+         'list_lookup',
+         'test_cog']
 
 def main():
     debug = os.getenv('DEBUG', False)
@@ -31,7 +32,7 @@ def main():
     discord.VoiceClient.warn_nacl = False
     intents = discord.Intents.default()
     intents.message_content = True
-    bot = discord.Bot(intents=intents)
+    bot = discord.Bot(intents=intents, cache_app_emojis=True)
     for cog in COGS:
         bot.load_extension(f"r2d7.DiscordR3.cogs.{cog}")
     logging.info("Starting Discord client")

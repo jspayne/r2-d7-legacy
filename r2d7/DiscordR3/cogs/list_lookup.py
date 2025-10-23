@@ -1,14 +1,13 @@
 import logging
 import math
 import re
-from enum import Enum
 from html import unescape
 import requests
 import discord
 from discord.ext import commands
 from r2d7.DiscordR3.cogs import card_db
 from r2d7.XWing.list_formatter import ListFormatter
-
+from typing import List, Union
 logger = logging.getLogger(__name__)
 
 class ListLookupCog(commands.Cog):
@@ -45,7 +44,7 @@ class ListLookupCog(commands.Cog):
     async def do_list_lookup(self, url, reply_callback, message=None):
         xws = self.get_xws(url)
         if xws:
-            embeds = self.get_list_embeds(xws)
+            embeds: List[Union[discord.Embed, str]] = self.get_list_embeds(xws)  # First item returned is a string
             title = embeds[0]
             embeds = embeds[1:]
             if message:
