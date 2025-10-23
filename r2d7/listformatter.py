@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class Legality(Enum):
     standard = "Standard"
-    extended = "Extended"
+    extended = "Wild Space"
     epic = "Epic"
     banned = "Banned"
 

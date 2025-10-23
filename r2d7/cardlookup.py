@@ -256,13 +256,6 @@ class CardLookup(DroidCore):
             stats.append(self.print_charge(pilot['force'], force=True))
         line.append(''.join(stats))
 
-        arcs = [self._arc_icons[arc] for arc in ship.get('firing_arcs', [])
-                if arc in self._arc_icons]
-        if arcs:
-            line.append(''.join(
-                self.iconify(f"attack-{arc}", special_chars=True)
-                for arc in arcs))
-
         if pilot and 'shipActions' in pilot:
             line.append('|'.join(
                 self.print_action(action) for action in pilot['shipActions']
