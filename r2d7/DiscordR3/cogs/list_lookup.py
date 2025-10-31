@@ -97,7 +97,7 @@ class ListLookupCog(commands.Cog):
         output = formatter.print_list()
         embeds = [output[0]]
         for line in output[1:]:
-            embeds.append(discord.Embed(description=line, color=formatter.get_faction_color(xws['faction'])))
+            embeds.append(discord.Embed(description=line, color=fmt.get_faction_color(xws['faction'])))
         return embeds
 
 class ConfirmDeleteView(discord.ui.View):
