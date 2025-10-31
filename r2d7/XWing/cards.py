@@ -9,11 +9,10 @@ from collections import defaultdict
 from itertools import groupby
 from urllib.parse import quote
 from r2d7.XWing.legality import CardLegality
+from r2d7.DiscordR3.discord_formatter import discord_formatter as fmt
 
 import requests
 from thefuzz import fuzz
-
-from r2d7.DiscordR3.discord_formatter import DiscordFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +136,7 @@ class XwingDB(object):
 # This class can be re-declared with a generic formatter
 # I'm only developing for Discord at this time, but I'm keeping
 # the Discord specific code separate for future compatibility
-class CardData(DiscordFormatter):
+class CardData():
     RE_ICON = re.compile(r'(\[([a-zA-Z0-9 ]+)])')  # Search for icon replacement text
     RE_MANEUVER = re.compile(r'(\[([0-9]+)\s+\[([a-zA-Z0-9]+)]])')  # Maneuvers use nested replacements
     RESTRICTION_FACTION_MAP = {
@@ -178,7 +177,7 @@ class CardData(DiscordFormatter):
         if self.ability:
             self.token_ability = self._icon_format_string(self.ability)
             for key in ['Setup:', 'Action:']:
-                self.token_ability = self.token_ability.replace(key, '\n' + f'{self.bold(key)}')
+                self.token_ability = self.token_ability.replace(key, '\n' + f'{fmt.bold(key)}')
 
     def __getattribute__(self, item):
         try:
@@ -207,9 +206,9 @@ class CardData(DiscordFormatter):
     def _bold_card_names(self, text):
         out = text
         for key, pilot in self.db.pilots_xws_index.items():
-            out = out.replace(pilot.name, self.bold(pilot.name))
+            out = out.replace(pilot.name, fmt.bold(pilot.name))
         for title in self.db.conditions.keys():
-            out = out.replace(title, self.bold(title))
+            out = out.replace(title, fmt.bold(title))
         return out
 
     def _format_name(self, card_name):
@@ -246,7 +245,7 @@ class CardData(DiscordFormatter):
         else:
             out += self.formatted_name
         if self.caption:
-            out += f': {self.italics(self.caption)}'
+            out += f': {fmt.italics(self.caption)}'
         out += f' {self.print_cost()} {self.print_mode()}\n'
         out += self.print_restrictions() + '\n'
         return out
@@ -374,7 +373,7 @@ class CardData(DiscordFormatter):
             ands.append(' or '.join(ors))
 
         if ands:
-            return self.italics('Restrictions: ' + ', '.join(ands))
+            return fmt.italics('Restrictions: ' + ', '.join(ands))
         return None
 
     def get_cost(self):
@@ -430,14 +429,14 @@ class CardData(DiscordFormatter):
         )
 
     def print_device(self, device):
-        return f"{self.bold(device['name'])} ({device['type']})" + device['effect']
+        return f"{fmt.bold(device['name'])} ({device['type']})" + device['effect']
 
     def print_body(self):
         out =  ''
         if self.token_ability:
             out += f'{self._bold_card_names(self.token_ability)}\n'
         if self.text:
-            out += f'{self.italics(self.text)}\n'
+            out += f'{fmt.italics(self.text)}\n'
         return out
 
     def print_last(self, side):
@@ -482,7 +481,7 @@ class CardData(DiscordFormatter):
             tip = self.text
         else:
             tip = self.ability
-        return self.link(url, card_name, tooltip=tip)
+        return fmt.link(url, card_name, tooltip=tip)
 
     @property
     def search_text(self):
@@ -527,7 +526,7 @@ class Upgrade(Card):
         super().__init__(card_data, db)
         self.sides = [Side(side, db) for side in card_data['sides']]
         if self.shipAbility:
-            self.token_ship_ability = (f'{self.bold(self.shipAbility["name"])}: '
+            self.token_ship_ability = (f'{fmt.bold(self.shipAbility["name"])}: '
                                        f'{self._icon_format_string(self.shipAbility["text"])}\n')
         self.restrictions = {}
         for restriction in restrictions:
@@ -539,9 +538,9 @@ class Upgrade(Card):
         out = self.print_header()
         for side in self.sides:
             if len(self.sides) > 1:
-                out += f'{self.bold(side.title)}\n'
+                out += f'{fmt.bold(side.title)}\n'
             out += self.print_side(side) + '\n'
-        out = out.format_map(self.emoji_map)
+        out = out.format_map(fmt.emoji_map)
         return out
 
     def get_image(self):
@@ -577,11 +576,11 @@ class Upgrade(Card):
 
     def print_header(self, no_links=False):
         out = f'{self._icon_format_string(f"[{self.sides[0].type}]")} ' + super().print_header(no_links=no_links)
-        return out.format_map(self.emoji_map)
+        return out.format_map(fmt.emoji_map)
 
     def select_line(self):
         out = super().select_line()
-        out['emoji'] = self.iconify(self.sides[0].type).format_map(self.emoji_map)
+        out['emoji'] = self.iconify(self.sides[0].type).format_map(fmt.emoji_map)
         if self.standardLoadoutOnly:
             out['label'] += ' (Standard Loadout)'
         if len(self.restrictions.get('factions', [])):
@@ -613,7 +612,7 @@ class Upgrade(Card):
             for condition in self.conditions or []:
                 out += str(side.db.conditions_xws_index[condition])
 
-        out = out.format_map(self.emoji_map)
+        out = out.format_map(fmt.emoji_map)
         return out
 
     @property
@@ -647,7 +646,7 @@ class Pilot(Card):
         # ships (e.g. Sep Vulture) have different ship abilities depending
         # on the pilot
         if self.shipAbility:
-            self.token_ship_ability = (f'{self.bold(self.shipAbility["name"])}: '
+            self.token_ship_ability = (f'{fmt.bold(self.shipAbility["name"])}: '
                                        f'{self._icon_format_string(self.shipAbility["text"])}\n')
         return
 
@@ -660,7 +659,7 @@ class Pilot(Card):
         out += self.print_last(self)
         for condition in self.conditions or []:
             out += str(self.db.conditions_xws_index[condition])
-        out = out.format_map(self.emoji_map)
+        out = out.format_map(fmt.emoji_map)
         return out
 
     @property
@@ -672,7 +671,7 @@ class Pilot(Card):
 
     def select_line(self):
         out = super().select_line()
-        out['emoji'] = self.iconify(self.ship.xws).format_map(self.emoji_map)
+        out['emoji'] = self.iconify(self.ship.xws).format_map(fmt.emoji_map)
         out['label'] += f'({self.db.factions[self.ship.faction]["name"]})'
         out['label'] += f' {self.print_mode()} {self.print_cost()}'
         return out
@@ -680,7 +679,7 @@ class Pilot(Card):
     def pilot_select_line(self):
         # Used when selecting pilots from a ship
         out = {'label': f'{self.name} ',
-               'emoji': self.iconify(f'initiative{self.initiative}').format_map(self.emoji_map)}
+               'emoji': self.iconify(f'initiative{self.initiative}').format_map(fmt.emoji_map)}
         if self.limited:
             out['label'] = f'{("•" * self.limited)} {out["label"]}'
         if self.caption:
@@ -690,11 +689,11 @@ class Pilot(Card):
 
     def print_header(self, no_links=False):
         out = f'{self.iconify(self.ship.xws)} ' + super().print_header(no_links=no_links)
-        return out.format_map(self.emoji_map)
+        return out.format_map(fmt.emoji_map)
 
     def pilot_line(self):
         out = f'{self.iconify(self.ship.xws)}{self.iconify("initiative" + str(self.initiative))} {self.formatted_name} {self.print_cost()}'
-        return out.format_map(self.emoji_map)
+        return out.format_map(fmt.emoji_map)
 
 class Ship(CardData):
     # Dialgen format defined here: http://xwvassal.info/dialgen/dialgen
@@ -769,7 +768,7 @@ class Ship(CardData):
                  ]
         lines.extend(self.print_maneuvers())
         out = '\n'.join(lines)
-        out = out.format_map(self.emoji_map)
+        out = out.format_map(fmt.emoji_map)
         return out
 
     def print_header(self, no_links=False):
@@ -777,12 +776,12 @@ class Ship(CardData):
                  self.formatted_name,
                  self.iconify(f"{self.size.lower()}base")]
         line = ' '.join(items)
-        return line.format_map(self.emoji_map)
+        return line.format_map(fmt.emoji_map)
 
     def select_line(self):
         # Used when selecting pilots from a direct search
         out = {'label': self.name,
-               'emoji': self.iconify(self.xws).format_map(self.emoji_map)}
+               'emoji': self.iconify(self.xws).format_map(fmt.emoji_map)}
         out['label'] += f'({self.db.factions[self.faction]["name"]})'
         if self.standardLoadoutOnly:
             out['label'] += ' (Standard Loadout)'
@@ -824,10 +823,10 @@ class Damage(Card):
         return
 
     def __str__(self):
-        out = f'{{atkcrit}} {self.bold(self.title)} ({self.deck}) {"•" * self.amount}\n'
+        out = f'{{atkcrit}} {fmt.bold(self.title)} ({self.deck}) {"•" * self.amount}\n'
         out += f'{self.token_text}\n'
-        out = out.replace('Action:', f'\n{self.bold("Action:")}')
-        out = out.format_map(self.emoji_map)
+        out = out.replace('Action:', f'\n{fmt.bold("Action:")}')
+        out = out.format_map(fmt.emoji_map)
         return out
 
     @property
@@ -838,7 +837,7 @@ class Damage(Card):
 
     def _format_name(self, card_name):
         # This card type doesn't have a wiki link
-        return self.bold(card_name)
+        return fmt.bold(card_name)
 
 class Condition(Card):
     def __init__(self, card_data, db):
@@ -848,14 +847,14 @@ class Condition(Card):
         return
 
     def __str__(self):
-        out = f'{{condition}} • {self.bold(self.name)}\n'
+        out = f'{{condition}} • {fmt.bold(self.name)}\n'
         out += f'{self._bold_card_names(self.token_ability)}\n'
-        out = out.format_map(self.emoji_map)
+        out = out.format_map(fmt.emoji_map)
         return out
 
     def _format_name(self, card_name):
         # This card type doesn't have a wiki link
-        return self.bold(card_name)
+        return fmt.bold(card_name)
 
     @property
     def unique_name(self):
@@ -900,10 +899,10 @@ def test_search(db: XwingDB):
 
 def main():
     logger.setLevel(logging.DEBUG)
-    db = XwingDB()
-    test_search(db)
+    test_search(card_db)
     pass
 
+card_db = XwingDB()
 
 if __name__ == '__main__':
     main()

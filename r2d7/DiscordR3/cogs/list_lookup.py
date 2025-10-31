@@ -5,7 +5,8 @@ from html import unescape
 import requests
 import discord
 from discord.ext import commands
-from r2d7.DiscordR3.cogs import card_db
+from r2d7.XWing.cards import card_db
+from r2d7.DiscordR3.discord_formatter import discord_formatter as fmt
 from r2d7.XWing.list_formatter import ListFormatter
 from typing import List, Union
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class ListLookupCog(commands.Cog):
         self.bot = bot
         self.embeds = []
         self.db = card_db
+        fmt.set_bot(self.bot)
 
     @commands.Cog.listener()
     async def on_ready(self):

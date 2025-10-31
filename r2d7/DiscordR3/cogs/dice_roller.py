@@ -1,10 +1,10 @@
 import logging
 
 import discord
-from ..discord_formatter import DiscordFormatter
+from r2d7.DiscordR3.discord_formatter import discord_formatter as fmt
 from discord.ext import commands
-from ...XWing.roller import ModdedRoll, VsRoll
-from ...XWing.dice import DieType
+from r2d7.XWing.roller import ModdedRoll, VsRoll
+from r2d7.XWing.dice import DieType
 import random
 import re
 
@@ -18,7 +18,7 @@ class DiceRollerCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.formatter = DiscordFormatter()
+        fmt.set_bot(self.bot)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -30,7 +30,7 @@ class DiceRollerCog(commands.Cog):
         resp = self.roll_dice(query)
         if isinstance(resp, list):
             resp = '\n'.join(resp)
-        await ctx.respond(resp.format_map(self.formatter.emoji_map))
+        await ctx.respond(resp.format_map(fmt.emoji_map))
 
     def roll_dice(self, query):
         if self.re_syntax.search(query):
@@ -60,8 +60,8 @@ class DiceRollerCog(commands.Cog):
         output = [roll.actual_roll()]
         if roll.calculator_safe():
             roll.calculate_expected()
-            link_string = self.formatter.link(roll.calculator_url, roll.calculator_url_description)
-            result_string = self.formatter.bold(f'{roll.calculator_result:.3f}')
+            link_string = fmt.link(roll.calculator_url, roll.calculator_url_description)
+            result_string = fmt.bold(f'{roll.calculator_result:.3f}')
             output.append(f'{link_string} {result_string}')
         return output
 

@@ -1,12 +1,11 @@
 import logging
-import re
 import json
 from r2d7.XWing.legality import ListLegality, Legality
-from r2d7.DiscordR3.discord_formatter import DiscordFormatter
+from r2d7.DiscordR3.discord_formatter import discord_formatter as fmt
 
 logger = logging.getLogger(__name__)
 
-class ListFormatter(DiscordFormatter):
+class ListFormatter(object):
     def __init__(self, db, xws):
         super().__init__()
         self.db = db
@@ -38,9 +37,9 @@ class ListFormatter(DiscordFormatter):
                 if 'link' in vendor:
                     url = vendor['link']
         if url:
-            name = self.link(url, name)
-        title = f"{{{self.xws['faction']}}} {self.bold(name)} "  # extra space needed because points are added below
-        output = [title.format_map(self.emoji_map)]
+            name = fmt.link(url, name)
+        title = f"{{{self.xws['faction']}}} {fmt.bold(name)} "  # extra space needed because points are added below
+        output = [title.format_map(fmt.emoji_map)]
         squad_points = 0
         legality = ListLegality(Legality.standard)
 
@@ -50,18 +49,15 @@ class ListFormatter(DiscordFormatter):
             except KeyError:
                 # Unrecognised pilot
                 output.append('{question}' * 2 + ' ' +
-                              self.italics(f'Unknown Pilot: {pilot["id"]}'))
+                              fmt.italics(f'Unknown Pilot: {pilot["id"]}'))
                 continue
             pilot_points = pilot_card.get_cost()
-            initiative = pilot_card.initiative
-
             legality.update(pilot_card)
-
             upgrade_data = self.get_upgrade_data(pilot)
             upgrades = []
             for upgrade in upgrade_data:
                 if upgrade is None:
-                    upgrades.append(self.bold('Unrecognised Upgrade'))
+                    upgrades.append(fmt.bold('Unrecognised Upgrade'))
                     continue
                 if upgrade.sides is not None:
                     side = upgrade.sides[0]
@@ -74,12 +70,12 @@ class ListFormatter(DiscordFormatter):
             ship_line = pilot_card.pilot_line()
             if upgrades:
                 ship_line += f": {', '.join(upgrades)}"
-            ship_line += f' {self.bold(f"[{pilot_points}]")}'
+            ship_line += f' {fmt.bold(f"[{pilot_points}]")}'
 
             output.append(ship_line)
             squad_points += pilot_points
 
-        output[0] += self.bold(f"[{squad_points}]")
+        output[0] += fmt.bold(f"[{squad_points}]")
         if legality.value != Legality.banned:
-            output[0] += f' {self.bold(f"[{str(legality)}]")}'
+            output[0] += f' {fmt.bold(f"[{str(legality)}]")}'
         return output

@@ -4,8 +4,9 @@ import random
 
 import discord
 from discord.ext import commands
-from . import card_db
-from ...XWing.cards import Ship
+from r2d7.DiscordR3.discord_formatter import discord_formatter as fmt
+from r2d7.XWing.cards import card_db
+from r2d7.XWing.cards import Ship
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class CardLookupCog(commands.Cog):
         self.bot = bot
         self.embeds = []
         self.db = card_db
+        fmt.set_bot(self.bot)
 
     @commands.Cog.listener()
     async def on_ready(self):
