@@ -673,6 +673,8 @@ class Pilot(Card):
         out = super().select_line()
         out['emoji'] = self.iconify(self.ship.xws).format_map(fmt.emoji_map)
         out['label'] += f'({self.db.factions[self.ship.faction]["name"]})'
+        if self.caption:
+            out['label'] += f': {self.caption}'
         out['label'] += f' {self.print_mode()} {self.print_cost()}'
         return out
 
