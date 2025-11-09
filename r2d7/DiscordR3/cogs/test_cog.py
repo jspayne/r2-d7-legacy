@@ -17,6 +17,14 @@ class TestCog(commands.Cog):
         logger.info('Test cog ready')
         pass
 
+    @discord.slash_command(description='Get user info from name')
+    @discord.option("info", type=discord.SlashCommandOptionType.string)
+    async def info(self, ctx, query: str):
+        aname = query.split('#')[0]
+        anum = query.split('#')[1]
+        user = discord.utils.get(ctx.guild.members, name=aname, discriminator=anum)
+        return await ctx.respond(user)
+
     @discord.slash_command(description="Do not use!  Framework for random code testing.  Could crash the bot.")
     @discord.option("testme", type=discord.SlashCommandOptionType.string)
     async def testme(self, ctx, query: str):

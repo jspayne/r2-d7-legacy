@@ -29,9 +29,9 @@ def main():
     logging.info(f"Discord token: {discord_token}")
     # This bot doesn't do voice, suppress warning about NaCl library
     discord.VoiceClient.warn_nacl = False
-    intents = discord.Intents.default()
-    intents.message_content = True
-    bot = discord.Bot(intents=intents, cache_app_emojis=True)
+    # intents = discord.Intents.default()
+    # intents.message_content = True
+    bot = discord.Bot(intents=discord.Intents.all(), cache_app_emojis=True)
     for cog in COGS:
         bot.load_extension(f"r2d7.DiscordR3.cogs.{cog}")
     logging.info("Starting Discord client")

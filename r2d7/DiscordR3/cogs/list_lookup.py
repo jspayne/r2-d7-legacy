@@ -34,6 +34,10 @@ class ListLookupCog(commands.Cog):
     async def on_message(self, message):
         if message.author.bot:  # Don't respond to myself or other bots.
             return
+        # Skip list lookups if 4-A7 is on the channel
+        other_bot = discord.utils.get(message.channel.members, name='4-A7', discriminator='7543')
+        if (other_bot is not None) and (other_bot.raw_status == 'online'):
+            return
         # Card Lookup
         queries = []
         for list_re in self.RE_LIST_URLS:
