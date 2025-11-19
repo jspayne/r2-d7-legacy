@@ -16,7 +16,7 @@ from thefuzz import fuzz
 
 logger = logging.getLogger(__name__)
 
-JSON_MANIFEST = 'http://localhost:8000/xwing-data2-legacy/data/manifest.json'
+JSON_MANIFEST = 'http://localhost:8080/xwing-data2-legacy/data/manifest.json'
 
 
 # noinspection SpellCheckingInspection
@@ -555,21 +555,24 @@ class Upgrade(Card):
     def get_cost(self, pilot=None):
         if 'variable' in self.cost:
             cost_key = self.cost['variable']
-            # Check if the variable is a pilot attribute (currently only "initiative")
-            cost_index = pilot.__dict__.get(cost_key, None)
-            if cost_index is None:
-                # Now check direct Ship attributes (currently only "size")
-                cost_index = pilot.ship.__dict__.get(cost_key, None)
-            if cost_index is None:
-                # Now check if it is a ship stat (currently only "agility")
-                for stat in pilot.ship.stats:
-                    if stat['type'] == cost_key:
-                        cost_index = stat['value']
-                        break
-            if cost_index is None:
-                logger.error(f'Unknown cost variable: {cost_key}')
-                return 0
-            out = self.cost['values'][str(cost_index)]
+            if pilot is not None:
+                # Check if the variable is a pilot attribute (currently only "initiative")
+                cost_index = pilot.__dict__.get(cost_key, None)
+                if cost_index is None:
+                    # Now check direct Ship attributes (currently only "size")
+                    cost_index = pilot.ship.__dict__.get(cost_key, None)
+                if cost_index is None:
+                    # Now check if it is a ship stat (currently only "agility")
+                    for stat in pilot.ship.stats:
+                        if stat['type'] == cost_key:
+                            cost_index = stat['value']
+                            break
+                if cost_index is None:
+                    logger.error(f'Unknown cost variable: {cost_key}')
+                    return 0
+                out = self.cost['values'][str(cost_index)]
+            else:  # we don't have what we need to pick a cost
+                out = f'{', '.join(self.cost["values"])} ({cost_key})'
         else:
             out = self.cost['value']
         return out
