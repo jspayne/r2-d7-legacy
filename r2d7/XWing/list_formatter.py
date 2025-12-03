@@ -66,6 +66,7 @@ class ListFormatter(object):
                 upgrade_text = f'{side.wiki_link(upgrade.name)}({upgrade.get_cost(pilot_card)})'
                 upgrades.append(upgrade_text)
                 legality.update(upgrade)
+                pilot_points += upgrade.get_cost(pilot=pilot_card)
 
             ship_line = pilot_card.pilot_line()
             if upgrades:
