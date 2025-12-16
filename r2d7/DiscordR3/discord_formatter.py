@@ -45,17 +45,15 @@ class DiscordFormatter(object):
         it will still work.  There is also a very small possibility of one cog
         getting a command before the one doing the initialization finishes.
 
-        I'm not sure if pycord runs cogs in separate threads, but we'll lock this
-        setup just in case to avoid race conditions.
+        BAD? I'm not sure if pycord runs cogs in separate threads, but we'll lock this
+        setup just in case to avoid race conditions. (Removed for now - possible race?)
         """
-        self.lock.acquire()
         if self.emoji is None:
             if bot is None:
                 self.emoji = DiscordEmoji(DISCORD_EMOJI_JSON)
                 self.emoji_map = self.emoji.emoji_map
             else:
                 self.emoji_map = DiscordNativeEmoji(bot)
-        self.lock.release()
 
     @staticmethod
     def bold(text):
