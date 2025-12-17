@@ -67,7 +67,7 @@ class DiscordNativeEmoji(object):
         self.lock = Lock()
 
     def update_map(self):
-        self.lock.acquire() # prevent multiple threads from doing the update simultaneously
+        #self.lock.acquire() # prevent multiple threads from doing the update simultaneously
         if (time.time() - self.last_update) > self.UPDATE_RATE:
             log.debug('Checking for updated application emoji')
             for emoji in self.bot.app_emojis:
@@ -76,11 +76,11 @@ class DiscordNativeEmoji(object):
             for data_name, discord_name in LOOKUP_CONVERT.items():
                 self._emoji_map[data_name] = self._emoji_map[discord_name]
             self.last_update = time.time()
-        self.lock.release()
+        #self.lock.release()
 
     def __getitem__(self, item):
         self.update_map()
-        self.lock.acquire() # avoid looking up the emoji if another thread is updating it
+        #self.lock.acquire() # avoid looking up the emoji if another thread is updating it
         em = self._emoji_map[item]
-        self.lock.release()
+        #self.lock.release()
         return em
