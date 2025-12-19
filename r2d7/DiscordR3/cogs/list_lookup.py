@@ -57,15 +57,18 @@ class ListLookupCog(commands.Cog):
                 trailer =f"-# {message.author.display_name} requested this data.\n"
                 title = trailer + title
 
-            if len(embeds) <= 10:
+            if len(embeds) <= 4:
                 await reply_callback(content=title, embeds=embeds, view=ConfirmDeleteView(message))
             else:
-                total = math.ceil(len(embeds)/5)
+                total = math.ceil(len(embeds)/4)
                 count = 1
                 while len(embeds) > 0:
-                    await reply_callback(content=f'{title} (part {count}/{total})', embeds=embeds[:5],
-                                         view=ConfirmDeleteView(message))
-                    embeds = embeds[5:]
+                    if len(embeds) <= 4:
+                        await reply_callback(content=f'{title} (part {count}/{total})', embeds=embeds[:4],
+                                             view=ConfirmDeleteView(message))
+                    else:
+                        await reply_callback(content=f'{title} (part {count}/{total})', embeds=embeds[:4])
+                    embeds = embeds[4:]
                     count += 1
         else:
             logger.error('Invalid URL - no XWS found')
