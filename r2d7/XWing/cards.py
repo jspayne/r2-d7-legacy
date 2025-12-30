@@ -16,7 +16,7 @@ from thefuzz import fuzz
 
 logger = logging.getLogger(__name__)
 
-JSON_MANIFEST = 'http://localhost:8080/xwing-data2-legacy/data/manifest.json'
+JSON_MANIFEST = 'http://minime.local/xwing-data2-legacy/data/manifest.json'
 
 
 # noinspection SpellCheckingInspection
