@@ -9,3 +9,4 @@ markupsafe>=2.0.1
 py-cord>=2.2.2
 python-dotenv>=0.21.0
 rapidfuzz
+audioop-lts
